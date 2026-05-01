@@ -169,7 +169,7 @@ struct TagEditor: View {
                 TextField(
                     "",
                     text: $draft,
-                    prompt: Text(tags.isEmpty ? "add tag…" : "+")
+                    prompt: Text("add tag…")
                         .foregroundColor(Theme.textFaint)
                 )
                 .focused($draftFocused)
@@ -278,6 +278,20 @@ struct EditorView: View {
                     VStack(spacing: 0) {
                         FieldRow(label: "Thing") {
                             HStack(alignment: .top, spacing: 10) {
+                                TextField(
+                                    "",
+                                    text: $thing.name,
+                                    prompt: Text("Add a new Thing")
+                                        .foregroundColor(Theme.textFaint),
+                                    axis: .vertical
+                                )
+                                .focused($nameFocused)
+                                .font(Fonts.display(16, weight: .medium))
+                                .foregroundColor(Theme.text)
+                                .tracking(-0.4)
+                                .lineLimit(1...4)
+                                .textFieldStyle(.plain)
+                                
                                 Button(action: { thing.starred.toggle() }) {
                                     StarIcon(
                                         filled: thing.starred,
@@ -289,20 +303,6 @@ struct EditorView: View {
                                 .buttonStyle(.plain)
                                 .padding(.leading, -4)
                                 .padding(.top, 2)
-
-                                TextField(
-                                    "",
-                                    text: $thing.name,
-                                    prompt: Text("What's on your mind?")
-                                        .foregroundColor(Theme.textFaint),
-                                    axis: .vertical
-                                )
-                                .focused($nameFocused)
-                                .font(Fonts.display(20, weight: .medium))
-                                .foregroundColor(Theme.text)
-                                .tracking(-0.4)
-                                .lineLimit(1...4)
-                                .textFieldStyle(.plain)
                             }
                         }
 

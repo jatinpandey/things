@@ -84,6 +84,21 @@ struct DetailView: View {
         VStack(spacing: 0) {
             FieldRow(label: "Thing") {
                 HStack(alignment: .top, spacing: 10) {
+                    TextField(
+                        "",
+                        text: b.name,
+                        prompt: Text("Add a new Thing")
+                            .foregroundColor(Theme.textFaint),
+                        axis: .vertical
+                    )
+                    .focused($nameFocused)
+                    .font(Fonts.display(16, weight: .medium))
+                    .foregroundColor(Theme.text)
+                    .tracking(-0.4)
+                    .lineLimit(1...4)
+                    .textFieldStyle(.plain)
+                    .strikethrough(thing.completed, color: Theme.textFaint)
+                    
                     Button(action: { store.toggleStar(id: thing.id) }) {
                         StarIcon(
                             filled: thing.starred,
@@ -95,21 +110,6 @@ struct DetailView: View {
                     .buttonStyle(.plain)
                     .padding(.leading, -4)
                     .padding(.top, 2)
-
-                    TextField(
-                        "",
-                        text: b.name,
-                        prompt: Text("What's on your mind?")
-                            .foregroundColor(Theme.textFaint),
-                        axis: .vertical
-                    )
-                    .focused($nameFocused)
-                    .font(Fonts.display(20, weight: .medium))
-                    .foregroundColor(Theme.text)
-                    .tracking(-0.4)
-                    .lineLimit(1...4)
-                    .textFieldStyle(.plain)
-                    .strikethrough(thing.completed, color: Theme.textFaint)
                 }
             }
 
@@ -147,7 +147,7 @@ struct DetailView: View {
 
             FieldRow(
                 label: "Tags",
-                optional: !thing.tags.isEmpty,
+                optional: false,
                 onClear: { b.wrappedValue.tags = [] }
             ) {
                 TagEditor(tags: b.tags)
