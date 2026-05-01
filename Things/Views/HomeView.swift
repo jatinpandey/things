@@ -1,16 +1,9 @@
 import SwiftUI
-import UIKit
-import UniformTypeIdentifiers
-
-private let thingReorderType = UTType(exportedAs: "com.jatinpandey.things.reorder")
 
 struct HomeView: View {
     @ObservedObject var store: ThingsStore
     @State private var query: String = ""
     @State private var selectedThingID: Int?
-    @State private var draggedThingID: Int?
-    @State private var reorderFeedback = UISelectionFeedbackGenerator()
-    @State private var dragActivationFeedback = UIImpactFeedbackGenerator(style: .light)
 
     private var filtered: [Thing] {
         let active = store.active
@@ -28,6 +21,9 @@ struct HomeView: View {
     }
     private var starredCount: Int {
         store.active.filter(\.starred).count
+    }
+    private var canReorder: Bool {
+        query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
@@ -62,31 +58,11 @@ struct HomeView: View {
                     ForEach(groups) { g in
                         Section {
                             ForEach(g.items) { item in
-                                let canReorder = query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && g.items.count > 1
                                 ThingCard(
                                     thing: item,
                                     onTap: { selectedThingID = item.id },
                                     onToggleStar: { store.toggleStar(id: item.id) },
-                                    onReorderStart: canReorder ? {
-                                        beginReorder(for: item.id)
-                                        return reorderProvider(for: item.id)
-                                    } : nil
-                                )
-                                .onDrop(
-                                    of: [thingReorderType],
-                                    delegate: ThingReorderDropDelegate(
-                                        target: item,
-                                        sectionItems: g.items,
-                                        isEnabled: canReorder,
-                                        draggedThingID: $draggedThingID,
-                                        move: { movingID, targetID in
-                                            store.reorderWithinDate(movingID: movingID, over: targetID)
-                                        },
-                                        onMove: {
-                                            reorderFeedback.selectionChanged()
-                                            reorderFeedback.prepare()
-                                        }
-                                    )
+                                    showHandle: canReorder && g.items.count > 1
                                 )
                                 .listRowBackground(Color.clear)
                                 .listRowSeparator(.hidden)
@@ -99,6 +75,10 @@ struct HomeView: View {
                                     }
                                     .tint(Theme.accent)
                                 }
+                            }
+                            .onMove { source, destination in
+                                guard canReorder else { return }
+                                store.move(within: g.items, from: source, to: destination)
                             }
                         } header: {
                             DateHeader(iso: g.date, count: g.items.count)
@@ -140,9 +120,7 @@ struct HomeView: View {
         .navigationDestination(isPresented: Binding(
             get: { selectedThingID != nil },
             set: { isPresented in
-                if !isPresented {
-                    selectedThingID = nil
-                }
+                if !isPresented { selectedThingID = nil }
             }
         )) {
             if let selectedThingID, store.things.contains(where: { $0.id == selectedThingID }) {
@@ -150,56 +128,6 @@ struct HomeView: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
-    }
-
-    private func beginReorder(for id: Int) {
-        draggedThingID = id
-        dragActivationFeedback.prepare()
-        dragActivationFeedback.impactOccurred(intensity: 0.55)
-        reorderFeedback.prepare()
-    }
-
-    private func reorderProvider(for id: Int) -> NSItemProvider {
-        let provider = NSItemProvider()
-        provider.registerDataRepresentation(
-            forTypeIdentifier: thingReorderType.identifier,
-            visibility: .ownProcess
-        ) { completion in
-            completion(Data("\(id)".utf8), nil)
-            return nil
-        }
-        return provider
-    }
-}
-
-private struct ThingReorderDropDelegate: DropDelegate {
-    let target: Thing
-    let sectionItems: [Thing]
-    let isEnabled: Bool
-    @Binding var draggedThingID: Int?
-    let move: (Int, Int) -> Void
-    let onMove: () -> Void
-
-    func dropEntered(info: DropInfo) {
-        guard isEnabled,
-              let movingID = draggedThingID,
-              movingID != target.id,
-              sectionItems.contains(where: { $0.id == movingID }) else { return }
-
-        withAnimation(.spring(response: 0.24, dampingFraction: 0.88)) {
-            move(movingID, target.id)
-        }
-        onMove()
-    }
-
-    func dropUpdated(info: DropInfo) -> DropProposal? {
-        isEnabled ? DropProposal(operation: .move) : nil
-    }
-
-    func performDrop(info: DropInfo) -> Bool {
-        guard isEnabled else { return false }
-        draggedThingID = nil
-        return true
     }
 }
 

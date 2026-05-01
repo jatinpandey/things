@@ -20,20 +20,24 @@ final class ThingsStore: ObservableObject {
         things[i].starred.toggle()
     }
 
-    func reorderWithinDate(movingID: Int, over targetID: Int) {
-        guard movingID != targetID,
-              let from = things.firstIndex(where: { $0.id == movingID }),
-              let to = things.firstIndex(where: { $0.id == targetID }) else { return }
+    /// Reorder within a single date group.
+    /// `sectionItems` is the group's current order; `source`/`destination` are
+    /// indices into that section (as `.onMove` provides them).
+    func move(within sectionItems: [Thing], from source: IndexSet, to destination: Int) {
+        var newSection = sectionItems
+        newSection.move(fromOffsets: source, toOffset: destination)
 
-        let moving = things[from]
-        let target = things[to]
-        guard !moving.completed,
-              !target.completed,
-              (moving.date ?? "—") == (target.date ?? "—") else { return }
+        let sectionIDs = Set(sectionItems.map(\.id))
+        let slots = things.indices.filter { sectionIDs.contains(things[$0].id) }
+        let lookup: [Int: Thing] = Dictionary(uniqueKeysWithValues:
+            things.filter { sectionIDs.contains($0.id) }.map { ($0.id, $0) }
+        )
 
-        let item = things.remove(at: from)
-        let insertAt = min(to, things.endIndex)
-        things.insert(item, at: insertAt)
+        var next = things
+        for (slot, item) in zip(slots, newSection) {
+            if let t = lookup[item.id] { next[slot] = t }
+        }
+        things = next
     }
 
     func save(_ next: Thing) {

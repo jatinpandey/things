@@ -36,7 +36,9 @@ struct ThingCard: View {
     let thing: Thing
     var onTap: (() -> Void)? = nil
     var onToggleStar: () -> Void
-    var onReorderStart: (() -> NSItemProvider)? = nil
+    /// Show the visual drag-handle hint. The actual reorder is driven by the
+    /// containing List's `.onMove` (long-press anywhere on the row).
+    var showHandle: Bool = false
 
     var body: some View {
         cardBody
@@ -78,12 +80,11 @@ struct ThingCard: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel(thing.starred ? "Remove favorite" : "Add favorite")
 
-                if let onReorderStart {
+                if showHandle {
                     DragHandleIcon(size: 22, color: Theme.textFaint)
                         .frame(width: 52, height: 44)
-                        .contentShape(Rectangle())
-                        .onDrag(onReorderStart)
-                        .accessibilityLabel("Reorder thing")
+                        .accessibilityHidden(true)
+                        .allowsHitTesting(false)
                 }
             }
             .padding(.top, -10)
