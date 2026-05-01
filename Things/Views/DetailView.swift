@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct DetailView: View {
     @ObservedObject var store: ThingsStore
@@ -75,6 +76,7 @@ struct DetailView: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
+        .enableSwipeBack()
     }
 
     @ViewBuilder
@@ -122,7 +124,7 @@ struct DetailView: View {
                     DatePickerRow(value: Binding(
                         get: { b.wrappedValue.date ?? DateUtil.fmtISO(Date()) },
                         set: { b.wrappedValue.date = $0 }
-                    ))
+                    ), quickChoices: !thing.completed)
                 } else {
                     Button(action: { b.wrappedValue.date = DateUtil.fmtISO(Date()) }) {
                         HStack(spacing: 6) {
@@ -194,5 +196,41 @@ struct DetailView: View {
             }
             .padding(.top, 28)
         }
+    }
+}
+
+private struct SwipeBackEnabler: UIViewControllerRepresentable {
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    func makeUIViewController(context: Context) -> UIViewController {
+        UIViewController()
+    }
+
+    func updateUIViewController(_ controller: UIViewController, context: Context) {
+        DispatchQueue.main.async {
+            guard let navigationController = controller.navigationController else {
+                return
+            }
+
+            context.coordinator.navigationController = navigationController
+            navigationController.interactivePopGestureRecognizer?.isEnabled = true
+            navigationController.interactivePopGestureRecognizer?.delegate = context.coordinator
+        }
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        weak var navigationController: UINavigationController?
+
+        func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            (navigationController?.viewControllers.count ?? 0) > 1
+        }
+    }
+}
+
+private extension View {
+    func enableSwipeBack() -> some View {
+        background(SwipeBackEnabler().frame(width: 0, height: 0))
     }
 }

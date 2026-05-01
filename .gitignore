@@ -17,6 +17,7 @@ project.xcworkspace/xcuserdata/
 
 # Build artifacts
 build/
+.derivedData/
 DerivedData/
 *.ipa
 *.dSYM.zip

@@ -1,7 +1,7 @@
 import Foundation
 
 struct Thing: Identifiable, Equatable, Codable {
-    let id: Int
+    var id: Int
     var name: String
     var date: String?     // ISO yyyy-MM-dd, optional
     var tags: [String]
@@ -102,19 +102,21 @@ func groupByDate(_ things: [Thing]) -> [ThingGroup] {
     return groups
 }
 
-/// Group completed things by completion date, newest first.
+/// Group completed things by their own event date, newest first.
 func groupByCompletedDate(_ things: [Thing]) -> [ThingGroup] {
-    let cal = Calendar.current
-    let dated: [(String, Thing)] = things.map { t in
-        let key: String
-        if let when = t.completedAt {
-            key = DateUtil.fmtISO(cal.startOfDay(for: when))
-        } else {
-            key = "—"
+    let dated: [(String, Thing)] = things.map { ($0.date ?? "—", $0) }
+    let sorted = dated.sorted {
+        switch ($0.0, $1.0) {
+        case ("—", "—"):
+            return $0.1.name < $1.1.name
+        case ("—", _):
+            return false
+        case (_, "—"):
+            return true
+        default:
+            return $0.0 > $1.0
         }
-        return (key, t)
     }
-    let sorted = dated.sorted { $0.0 > $1.0 }
     var groups: [ThingGroup] = []
     for (date, t) in sorted {
         if let i = groups.firstIndex(where: { $0.date == date }) {
@@ -122,6 +124,9 @@ func groupByCompletedDate(_ things: [Thing]) -> [ThingGroup] {
         } else {
             groups.append(ThingGroup(date: date, items: [t]))
         }
+    }
+    for i in groups.indices {
+        groups[i].items.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
     return groups
 }

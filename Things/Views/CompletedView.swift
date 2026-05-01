@@ -2,8 +2,17 @@ import SwiftUI
 
 struct CompletedView: View {
     @ObservedObject var store: ThingsStore
+    @State private var query: String = ""
+    @State private var selectedThingID: Int?
 
-    private var groups: [ThingGroup] { groupByCompletedDate(store.completed) }
+    private var filtered: [Thing] {
+        let completed = store.completed
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty else { return completed }
+        return completed.filter { searchableText(for: $0).lowercased().contains(q) }
+    }
+
+    private var groups: [ThingGroup] { groupByCompletedDate(filtered) }
 
     var body: some View {
         ZStack {
@@ -30,16 +39,19 @@ struct CompletedView: View {
             } else {
                 List {
                     Section {
-                        HStack(alignment: .lastTextBaseline) {
-                            Text("Completed")
-                                .font(Fonts.display(28, weight: .semibold))
-                                .foregroundColor(Theme.text)
-                                .tracking(-0.8)
-                            Spacer()
-                            Text("\(store.completed.count) done")
-                                .font(Fonts.mono(11))
-                                .foregroundColor(Theme.textFaint)
-                                .tracking(0.4)
+                        VStack(alignment: .leading, spacing: 14) {
+                            HStack(alignment: .lastTextBaseline) {
+                                Text("Completed")
+                                    .font(Fonts.display(28, weight: .semibold))
+                                    .foregroundColor(Theme.text)
+                                    .tracking(-0.8)
+                                Spacer()
+                                Text(completedCountText)
+                                    .font(Fonts.mono(11))
+                                    .foregroundColor(Theme.textFaint)
+                                    .tracking(0.4)
+                            }
+                            SearchBar(query: $query, prompt: "Search title, tag, date, month")
                         }
                         .padding(.vertical, 8)
                         .listRowBackground(Color.clear)
@@ -50,14 +62,12 @@ struct CompletedView: View {
                     ForEach(groups) { g in
                         Section {
                             ForEach(g.items) { item in
-                                NavigationLink(value: item.id) {
-                                    ThingCard(
-                                        thing: item,
-                                        onTap: nil,
-                                        onToggleStar: { store.toggleStar(id: item.id) }
-                                    )
-                                    .opacity(0.78)
-                                }
+                                ThingCard(
+                                    thing: item,
+                                    onTap: { selectedThingID = item.id },
+                                    onToggleStar: { store.toggleStar(id: item.id) }
+                                )
+                                .opacity(0.78)
                                 .listRowBackground(Color.clear)
                                 .listRowSeparator(.hidden)
                                 .listRowInsets(EdgeInsets(top: 4, leading: 18, bottom: 4, trailing: 18))
@@ -86,6 +96,19 @@ struct CompletedView: View {
                         .textCase(nil)
                     }
 
+                    if filtered.isEmpty && !query.isEmpty {
+                        Section {
+                            Text("No completed things match “\(query)”")
+                                .font(Fonts.display(15))
+                                .foregroundColor(Theme.textFaint)
+                                .tracking(-0.2)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 60)
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                        }
+                    }
+
                     Section {
                         Color.clear
                             .frame(height: 60)
@@ -98,12 +121,66 @@ struct CompletedView: View {
                 .background(Theme.bg)
             }
         }
-        .navigationDestination(for: Int.self) { id in
-            if store.things.contains(where: { $0.id == id }) {
-                DetailView(store: store, thingID: id)
+        .navigationDestination(isPresented: Binding(
+            get: { selectedThingID != nil },
+            set: { isPresented in
+                if !isPresented {
+                    selectedThingID = nil
+                }
+            }
+        )) {
+            if let selectedThingID, store.things.contains(where: { $0.id == selectedThingID }) {
+                DetailView(store: store, thingID: selectedThingID)
             }
         }
         .toolbar(.hidden, for: .navigationBar)
+    }
+
+    private var completedCountText: String {
+        if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return "\(store.completed.count) done"
+        }
+
+        return "\(filtered.count) of \(store.completed.count)"
+    }
+
+    private func searchableText(for thing: Thing) -> String {
+        var parts = [thing.name]
+        parts.append(contentsOf: thing.tags)
+
+        if let date = thing.date {
+            parts.append(date)
+            parts.append(DateUtil.dayLabel(date))
+
+            let meta = DateUtil.dayMeta(date)
+            parts.append(meta.weekday)
+            parts.append(meta.month)
+            parts.append(String(meta.day))
+            parts.append(String(meta.year))
+
+            if let parsedDate = DateUtil.parseISO(date) {
+                let calendar = Calendar.current
+                let components = calendar.dateComponents([.day, .month, .year], from: parsedDate)
+                let day = components.day ?? meta.day
+                let month = components.month ?? 0
+                let year = components.year ?? meta.year
+
+                parts.append("\(day)/\(month)")
+                parts.append("\(month)/\(day)")
+                parts.append("\(day)-\(month)")
+                parts.append("\(month)-\(day)")
+                parts.append("\(day)/\(month)/\(year)")
+
+                let formatter = DateFormatter()
+                formatter.locale = Locale(identifier: "en_US")
+                formatter.dateFormat = "MMMM"
+                parts.append(formatter.string(from: parsedDate))
+            }
+        } else {
+            parts.append("untimed")
+        }
+
+        return parts.joined(separator: " ")
     }
 }
 

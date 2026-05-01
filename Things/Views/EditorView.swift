@@ -94,6 +94,7 @@ struct FieldRow<Content: View>: View {
 
 struct DatePickerRow: View {
     @Binding var value: String
+    var quickChoices: Bool = true
     @State private var openPick = false
 
     private var todayISO: String { DateUtil.fmtISO(Date()) }
@@ -105,6 +106,14 @@ struct DatePickerRow: View {
     private var isPick: Bool { value != todayISO && value != tomorrowISO }
 
     var body: some View {
+        if quickChoices {
+            quickChoicePicker
+        } else {
+            dateTilePicker
+        }
+    }
+
+    private var quickChoicePicker: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 pill(active: value == todayISO, label: "Today") {
@@ -133,6 +142,62 @@ struct DatePickerRow: View {
                 .tint(Theme.accent)
             }
         }
+    }
+
+    private var dateTilePicker: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button {
+                openPick.toggle()
+            } label: {
+                HStack(spacing: 8) {
+                    CalIcon(size: 14, color: openPick ? Theme.bg : Theme.textDim)
+                    Text(dateTileLabel)
+                        .font(Fonts.sans(13, weight: .medium))
+                        .foregroundColor(openPick ? Theme.bg : Theme.text)
+                        .tracking(-0.1)
+                    Spacer(minLength: 10)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(openPick ? Theme.text : Theme.surface2)
+                )
+                .hairlineBorder(openPick ? Theme.text : Theme.hairline, radius: 10)
+            }
+            .buttonStyle(.plain)
+
+            if openPick {
+                DatePicker(
+                    "",
+                    selection: Binding(
+                        get: { DateUtil.parseISO(value) ?? Date() },
+                        set: { value = DateUtil.fmtISO($0) }
+                    ),
+                    displayedComponents: .date
+                )
+                .datePickerStyle(.graphical)
+                .labelsHidden()
+                .colorScheme(.dark)
+                .tint(Theme.accent)
+                .padding(10)
+                .background(Theme.surface)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .hairlineBorder(Theme.hairline, radius: 12)
+            }
+        }
+    }
+
+    private var dateTileLabel: String {
+        guard let date = DateUtil.parseISO(value) else {
+            return value
+        }
+
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US")
+        formatter.dateFormat = "MMM d, yyyy"
+        return formatter.string(from: date)
     }
 
     @ViewBuilder

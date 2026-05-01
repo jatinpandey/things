@@ -3,6 +3,7 @@ import SwiftUI
 struct HomeView: View {
     @ObservedObject var store: ThingsStore
     @State private var query: String = ""
+    @State private var selectedThingID: Int?
 
     private var filtered: [Thing] {
         let active = store.active
@@ -54,13 +55,11 @@ struct HomeView: View {
                     ForEach(groups) { g in
                         Section {
                             ForEach(g.items) { item in
-                                NavigationLink(value: item.id) {
-                                    ThingCard(
-                                        thing: item,
-                                        onTap: nil,
-                                        onToggleStar: { store.toggleStar(id: item.id) }
-                                    )
-                                }
+                                ThingCard(
+                                    thing: item,
+                                    onTap: { selectedThingID = item.id },
+                                    onToggleStar: { store.toggleStar(id: item.id) }
+                                )
                                 .listRowBackground(Color.clear)
                                 .listRowSeparator(.hidden)
                                 .listRowInsets(EdgeInsets(top: 4, leading: 18, bottom: 4, trailing: 18))
@@ -110,9 +109,16 @@ struct HomeView: View {
                 .scrollDismissesKeyboard(.interactively)
             }
         }
-        .navigationDestination(for: Int.self) { id in
-            if store.things.contains(where: { $0.id == id }) {
-                DetailView(store: store, thingID: id)
+        .navigationDestination(isPresented: Binding(
+            get: { selectedThingID != nil },
+            set: { isPresented in
+                if !isPresented {
+                    selectedThingID = nil
+                }
+            }
+        )) {
+            if let selectedThingID, store.things.contains(where: { $0.id == selectedThingID }) {
+                DetailView(store: store, thingID: selectedThingID)
             }
         }
         .toolbar(.hidden, for: .navigationBar)
@@ -121,6 +127,7 @@ struct HomeView: View {
 
 struct SearchBar: View {
     @Binding var query: String
+    var prompt: String = "Search by name or tag"
 
     var body: some View {
         HStack(spacing: 8) {
@@ -128,7 +135,7 @@ struct SearchBar: View {
             TextField(
                 "",
                 text: $query,
-                prompt: Text("Search by name or tag")
+                prompt: Text(prompt)
                     .foregroundColor(Theme.textFaint)
             )
             .font(Fonts.sans(14))

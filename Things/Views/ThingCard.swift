@@ -38,11 +38,7 @@ struct ThingCard: View {
     var onToggleStar: () -> Void
 
     var body: some View {
-        if let onTap {
-            Button(action: onTap) { cardBody }.buttonStyle(.plain)
-        } else {
-            cardBody
-        }
+        cardBody
     }
 
     @ViewBuilder
@@ -65,15 +61,22 @@ struct ThingCard: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                onTap?()
+            }
 
             Button(action: onToggleStar) {
                 StarIcon(filled: thing.starred,
                          size: 18,
                          color: thing.starred ? Theme.accent : Theme.textFaint)
-                    .padding(4)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .padding(-4)
+            .accessibilityLabel(thing.starred ? "Remove favorite" : "Add favorite")
+            .padding(.top, -10)
+            .padding(.trailing, -10)
         }
         .padding(14)
         .background(
