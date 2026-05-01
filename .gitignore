@@ -1,0 +1,65 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Xcode — user-specific (contains personal IDE state, never share)
+xcuserdata/
+*.xcuserstate
+*.xcuserdatad
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.pbxuser
+project.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+
+# Build artifacts
+build/
+DerivedData/
+*.ipa
+*.dSYM.zip
+*.dSYM
+*.hmap
+*.xcarchive
+
+# Swift Package Manager
+.build/
+Packages/
+Package.resolved
+.swiftpm/
+.netrc
+
+# CocoaPods (just in case)
+Pods/
+
+# Carthage (just in case)
+Carthage/Build/
+
+# fastlane (just in case)
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# Secrets / credentials — should never be committed
+*.pem
+*.p12
+*.mobileprovision
+*.cer
+.env
+.env.*
+!.env.example
+GoogleService-Info.plist
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*~
+
+# Python (used by build scripts)
+__pycache__/
+*.pyc
+.venv/
