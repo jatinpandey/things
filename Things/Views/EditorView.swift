@@ -58,7 +58,7 @@ struct ConfirmDialog: View {
     }
 }
 
-private struct FieldRow<Content: View>: View {
+struct FieldRow<Content: View>: View {
     let label: String
     var optional: Bool = false
     var onClear: (() -> Void)? = nil
@@ -92,7 +92,7 @@ private struct FieldRow<Content: View>: View {
     }
 }
 
-private struct DatePickerRow: View {
+struct DatePickerRow: View {
     @Binding var value: String
     @State private var openPick = false
 
@@ -155,7 +155,7 @@ private struct DatePickerRow: View {
     }
 }
 
-private struct TagEditor: View {
+struct TagEditor: View {
     @Binding var tags: [String]
     @State private var draft: String = ""
     @FocusState private var draftFocused: Bool
