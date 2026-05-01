@@ -1,13 +1,16 @@
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
+
+private let thingReorderType = UTType(exportedAs: "com.jatinpandey.things.reorder")
 
 struct HomeView: View {
     @ObservedObject var store: ThingsStore
     @State private var query: String = ""
     @State private var selectedThingID: Int?
     @State private var draggedThingID: Int?
-    @State private var rowFrames: [Int: CGRect] = [:]
     @State private var reorderFeedback = UISelectionFeedbackGenerator()
+    @State private var dragActivationFeedback = UIImpactFeedbackGenerator(style: .light)
 
     private var filtered: [Thing] {
         let active = store.active
@@ -64,21 +67,26 @@ struct HomeView: View {
                                     thing: item,
                                     onTap: { selectedThingID = item.id },
                                     onToggleStar: { store.toggleStar(id: item.id) },
-                                    onReorderDrag: canReorder ? { value in
-                                        handleReorderDrag(value, moving: item, in: g.items)
-                                    } : nil,
-                                    onReorderEnd: {
-                                        draggedThingID = nil
-                                    }
+                                    onReorderStart: canReorder ? {
+                                        beginReorder(for: item.id)
+                                        return reorderProvider(for: item.id)
+                                    } : nil
                                 )
-                                .opacity(draggedThingID == item.id ? 0.55 : 1)
-                                .background(
-                                    GeometryReader { proxy in
-                                        Color.clear.preference(
-                                            key: ThingRowFramePreferenceKey.self,
-                                            value: [item.id: proxy.frame(in: .global)]
-                                        )
-                                    }
+                                .onDrop(
+                                    of: [thingReorderType],
+                                    delegate: ThingReorderDropDelegate(
+                                        target: item,
+                                        sectionItems: g.items,
+                                        isEnabled: canReorder,
+                                        draggedThingID: $draggedThingID,
+                                        move: { movingID, targetID in
+                                            store.reorderWithinDate(movingID: movingID, over: targetID)
+                                        },
+                                        onMove: {
+                                            reorderFeedback.selectionChanged()
+                                            reorderFeedback.prepare()
+                                        }
+                                    )
                                 )
                                 .listRowBackground(Color.clear)
                                 .listRowSeparator(.hidden)
@@ -127,7 +135,6 @@ struct HomeView: View {
                 .scrollContentBackground(.hidden)
                 .background(Theme.bg)
                 .scrollDismissesKeyboard(.interactively)
-                .onPreferenceChange(ThingRowFramePreferenceKey.self) { rowFrames = $0 }
             }
         }
         .navigationDestination(isPresented: Binding(
@@ -145,33 +152,54 @@ struct HomeView: View {
         .toolbar(.hidden, for: .navigationBar)
     }
 
-    private func handleReorderDrag(_ value: DragGesture.Value, moving item: Thing, in sameDayItems: [Thing]) {
-        if draggedThingID == nil {
-            draggedThingID = item.id
-            reorderFeedback.prepare()
-        }
-
-        guard draggedThingID == item.id else { return }
-
-        let locationY = value.location.y
-        guard let target = sameDayItems.first(where: { candidate in
-            guard candidate.id != item.id, let frame = rowFrames[candidate.id] else { return false }
-            return frame.minY <= locationY && locationY <= frame.maxY
-        }) else { return }
-
-        withAnimation(.spring(response: 0.24, dampingFraction: 0.88)) {
-            store.reorderWithinDate(movingID: item.id, over: target.id)
-        }
-        reorderFeedback.selectionChanged()
+    private func beginReorder(for id: Int) {
+        draggedThingID = id
+        dragActivationFeedback.prepare()
+        dragActivationFeedback.impactOccurred(intensity: 0.55)
         reorderFeedback.prepare()
+    }
+
+    private func reorderProvider(for id: Int) -> NSItemProvider {
+        let provider = NSItemProvider()
+        provider.registerDataRepresentation(
+            forTypeIdentifier: thingReorderType.identifier,
+            visibility: .ownProcess
+        ) { completion in
+            completion(Data("\(id)".utf8), nil)
+            return nil
+        }
+        return provider
     }
 }
 
-private struct ThingRowFramePreferenceKey: PreferenceKey {
-    static var defaultValue: [Int: CGRect] = [:]
+private struct ThingReorderDropDelegate: DropDelegate {
+    let target: Thing
+    let sectionItems: [Thing]
+    let isEnabled: Bool
+    @Binding var draggedThingID: Int?
+    let move: (Int, Int) -> Void
+    let onMove: () -> Void
 
-    static func reduce(value: inout [Int: CGRect], nextValue: () -> [Int: CGRect]) {
-        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
+    func dropEntered(info: DropInfo) {
+        guard isEnabled,
+              let movingID = draggedThingID,
+              movingID != target.id,
+              sectionItems.contains(where: { $0.id == movingID }) else { return }
+
+        withAnimation(.spring(response: 0.24, dampingFraction: 0.88)) {
+            move(movingID, target.id)
+        }
+        onMove()
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        isEnabled ? DropProposal(operation: .move) : nil
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        guard isEnabled else { return false }
+        draggedThingID = nil
+        return true
     }
 }
 

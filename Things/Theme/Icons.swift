@@ -146,10 +146,10 @@ struct DragHandleIcon: View {
 
     var body: some View {
         VStack(spacing: size * 0.18) {
-            Capsule().fill(color).frame(width: size * 0.78, height: max(1.4, size * 0.11))
-            Capsule().fill(color).frame(width: size * 0.78, height: max(1.4, size * 0.11))
-            Capsule().fill(color).frame(width: size * 0.78, height: max(1.4, size * 0.11))
+            Capsule().fill(color).frame(width: size * 1.25, height: max(1.6, size * 0.11))
+            Capsule().fill(color).frame(width: size * 1.25, height: max(1.6, size * 0.11))
+            Capsule().fill(color).frame(width: size * 1.25, height: max(1.6, size * 0.11))
         }
-        .frame(width: size, height: size)
+        .frame(width: size * 1.35, height: size)
     }
 }

@@ -36,8 +36,7 @@ struct ThingCard: View {
     let thing: Thing
     var onTap: (() -> Void)? = nil
     var onToggleStar: () -> Void
-    var onReorderDrag: ((DragGesture.Value) -> Void)? = nil
-    var onReorderEnd: (() -> Void)? = nil
+    var onReorderStart: (() -> NSItemProvider)? = nil
 
     var body: some View {
         cardBody
@@ -79,15 +78,11 @@ struct ThingCard: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel(thing.starred ? "Remove favorite" : "Add favorite")
 
-                if let onReorderDrag {
-                    DragHandleIcon(size: 18, color: Theme.textFaint)
-                        .frame(width: 34, height: 44)
+                if let onReorderStart {
+                    DragHandleIcon(size: 22, color: Theme.textFaint)
+                        .frame(width: 52, height: 44)
                         .contentShape(Rectangle())
-                        .gesture(
-                            DragGesture(minimumDistance: 0, coordinateSpace: .global)
-                                .onChanged(onReorderDrag)
-                                .onEnded { _ in onReorderEnd?() }
-                        )
+                        .onDrag(onReorderStart)
                         .accessibilityLabel("Reorder thing")
                 }
             }

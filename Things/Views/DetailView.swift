@@ -64,6 +64,7 @@ struct DetailView: View {
                             .padding(.horizontal, 20)
                             .padding(.bottom, 30)
                     }
+                    .scrollBounceBehavior(.basedOnSize)
                     .scrollDismissesKeyboard(.interactively)
                 }
             } else {
