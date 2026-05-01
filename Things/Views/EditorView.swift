@@ -133,10 +133,16 @@ struct DatePickerRow: View {
                 pill(active: value == tomorrowISO, label: "Tomorrow") {
                     value = tomorrowISO; openPick = false
                 }
-                pill(
-                    active: isPick || openPick,
-                    label: isPick ? customPillLabel : "Custom"
-                ) {
+                if isPick {
+                    // The currently-picked custom date.
+                    pill(active: true, label: customPillLabel) {
+                        openPick.toggle()
+                    }
+                }
+                // Persistent "Custom" pill — opens the picker; once a date is
+                // chosen it's reflected in the picked-date pill above and the
+                // picker dismisses itself.
+                pill(active: openPick, label: "Custom") {
                     openPick.toggle()
                 }
                 Spacer(minLength: 0)
@@ -146,7 +152,12 @@ struct DatePickerRow: View {
                     "",
                     selection: Binding(
                         get: { DateUtil.parseISO(value) ?? Date() },
-                        set: { value = DateUtil.fmtISO($0) }
+                        set: { newDate in
+                            withAnimation(.easeOut(duration: 0.2)) {
+                                value = DateUtil.fmtISO(newDate)
+                                openPick = false
+                            }
+                        }
                     ),
                     displayedComponents: .date
                 )
@@ -158,6 +169,7 @@ struct DatePickerRow: View {
                 .background(Theme.surface)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .hairlineBorder(Theme.hairline, radius: 12)
+                .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
             }
         }
     }

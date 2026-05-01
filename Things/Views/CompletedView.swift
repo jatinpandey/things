@@ -53,10 +53,11 @@ struct CompletedView: View {
                             }
                             SearchBar(query: $query, prompt: "Search title, tag, date, month")
                         }
-                        .padding(.vertical, 8)
+                        .padding(.top, 8)
+                        .padding(.bottom, 2)
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
-                        .listRowInsets(EdgeInsets(top: 0, leading: 18, bottom: 12, trailing: 18))
+                        .listRowInsets(EdgeInsets(top: 0, leading: 18, bottom: 0, trailing: 18))
                     }
 
                     ForEach(groups) { g in
@@ -89,7 +90,7 @@ struct CompletedView: View {
                         } header: {
                             CompletedDateHeader(iso: g.date, count: g.items.count)
                                 .padding(.horizontal, 18)
-                                .padding(.top, 8)
+                                .padding(.top, 4)
                                 .listRowInsets(EdgeInsets())
                                 .background(Theme.bg)
                         }
@@ -111,7 +112,7 @@ struct CompletedView: View {
 
                     Section {
                         Color.clear
-                            .frame(height: 60)
+                            .frame(height: 110)
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
                     }

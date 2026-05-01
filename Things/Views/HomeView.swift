@@ -66,14 +66,22 @@ struct HomeView: View {
                                     onToggleStar: { store.toggleStar(id: item.id) },
                                     showHandle: canReorder && g.items.count > 1
                                 )
-                                .listRowBackground(Color.clear)
+                                // Theme.bg (not .clear) so the row's lift
+                                // snapshot is composed on our dark background
+                                // instead of the system's default black canvas.
+                                .listRowBackground(Theme.bg)
                                 .listRowSeparator(.hidden)
                                 .listRowInsets(EdgeInsets(top: 4, leading: 18, bottom: 4, trailing: 18))
+                                // Slightly earlier than iOS's ~0.5s reorder
+                                // activation so the haptic precedes (and
+                                // accompanies) the visible lift.
                                 .simultaneousGesture(
-                                    LongPressGesture(minimumDuration: 0.45)
+                                    LongPressGesture(minimumDuration: 0.4)
                                         .onEnded { _ in
                                             guard canReorder, g.items.count > 1 else { return }
-                                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                            let g = UIImpactFeedbackGenerator(style: .rigid)
+                                            g.prepare()
+                                            g.impactOccurred()
                                         }
                                 )
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -112,10 +120,11 @@ struct HomeView: View {
                         }
                     }
 
-                    // Bottom spacer above tab bar
+                    // Bottom spacer so the last card scrolls above the
+                    // floating bottom bar.
                     Section {
                         Color.clear
-                            .frame(height: 60)
+                            .frame(height: 110)
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
                     }

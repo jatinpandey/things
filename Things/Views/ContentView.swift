@@ -1,6 +1,6 @@
 import SwiftUI
 
-enum AppTab: Hashable { case home, add, completed }
+enum AppTab: Hashable { case home, completed }
 
 @MainActor
 final class ThingsStore: ObservableObject {
@@ -88,27 +88,25 @@ struct ContentView: View {
     @State private var showingAdd = false
 
     var body: some View {
-        TabView(selection: tabBinding) {
-            NavigationStack {
-                HomeView(store: store)
+        ZStack(alignment: .bottom) {
+            Group {
+                switch selection {
+                case .home:
+                    NavigationStack { HomeView(store: store) }
+                case .completed:
+                    NavigationStack { CompletedView(store: store) }
+                }
             }
-            .tabItem { Label("Home", systemImage: "house.fill") }
-            .tag(AppTab.home)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Theme.bgDeep.ignoresSafeArea())
 
-            // Add tab — selecting it presents a sheet without changing the
-            // visible tab. The body is rendered as the current tab's content
-            // so SwiftUI never has to morph the selection indicator.
-            currentTabContent
-                .tabItem { Label("Add", systemImage: "plus") }
-                .tag(AppTab.add)
-
-            NavigationStack {
-                CompletedView(store: store)
-            }
-            .tabItem { Label("Completed", systemImage: "checkmark") }
-            .tag(AppTab.completed)
+            BottomBar(
+                selection: $selection,
+                onAdd: { showingAdd = true }
+            )
+            .padding(.horizontal, 36)
+            .padding(.bottom, 6)
         }
-        .tint(Theme.accent)
         .sheet(isPresented: $showingAdd) {
             NavigationStack {
                 EditorView(
@@ -135,39 +133,76 @@ struct ContentView: View {
             }
         }
     }
+}
 
-    @ViewBuilder
-    private var currentTabContent: some View {
-        // Mirror whatever tab is currently active so the Add "tab" never
-        // visually morphs the selection indicator. Selection never actually
-        // changes to .add (see `tabBinding`).
-        switch selection {
-        case .home, .add:
-            NavigationStack { HomeView(store: store) }
-        case .completed:
-            NavigationStack { CompletedView(store: store) }
+struct BottomBar: View {
+    @Binding var selection: AppTab
+    let onAdd: () -> Void
+
+    var body: some View {
+        HStack(spacing: 0) {
+            BarButton(
+                icon: "house.fill",
+                label: "Home",
+                active: selection == .home
+            ) { selection = .home }
+
+            // The Add button intentionally has no `active` state and no
+            // selection-tied animation — tapping it only opens the sheet.
+            BarButton(
+                icon: "plus",
+                label: "Add",
+                active: false
+            ) { onAdd() }
+
+            BarButton(
+                icon: "checkmark",
+                label: "Completed",
+                active: selection == .completed
+            ) { selection = .completed }
         }
-    }
-
-    private var tabBinding: Binding<AppTab> {
-        Binding(
-            get: { selection },
-            set: { newValue in
-                if newValue == .add {
-                    // Don't touch `selection` — the visible tab stays put,
-                    // and the system tab bar has no source/target morph to
-                    // animate. Disable any ambient animation on the sheet
-                    // present so it pops cleanly.
-                    var t = Transaction()
-                    t.disablesAnimations = true
-                    withTransaction(t) {
-                        showingAdd = true
-                    }
-                } else {
-                    selection = newValue
-                }
-            }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 6)
+        .background(.ultraThinMaterial, in: Capsule())
+        .overlay(
+            Capsule().strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5)
         )
+        .shadow(color: .black.opacity(0.5), radius: 18, x: 0, y: 10)
+    }
+}
+
+private struct BarButton: View {
+    let icon: String
+    let label: String
+    let active: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 2) {
+                Image(systemName: icon)
+                    .font(.system(size: 17, weight: .semibold))
+                Text(label)
+                    .font(.system(size: 10, weight: .medium))
+                    .tracking(-0.05)
+            }
+            .foregroundColor(active ? Theme.accent : Theme.textDim)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 7)
+            .background(
+                Capsule()
+                    .fill(active ? Theme.accentDim : Color.clear)
+            )
+            .contentShape(Capsule())
+        }
+        .buttonStyle(BarButtonStyle())
+    }
+}
+
+/// Tap feedback only — no opacity/scale press animation, no morph.
+private struct BarButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
     }
 }
 
