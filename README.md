@@ -1,9 +1,10 @@
 # Things
 
-A quirky notepad for what's on your mind — iOS app, SwiftUI.
+A notepad for what's on your mind.
 
-A "thing" has a name, an optional date, optional tags (people / places / feelings),
-and a star for what matters. Swipe-left a card to mark it done.
+A "thing" has a name, a date, optional tags (people / places / feelings), and the ability to star/favorite what matters.
+Swipe-left a card to mark it completed.
+Completed cards show up on their own searchable page.
 
 ## Stack
 
@@ -52,5 +53,4 @@ python3 scripts/generate_xcodeproj.py    # rewrites Things.xcodeproj/project.pbx
 python3 scripts/generate_icons.py        # rewrites Assets.xcassets/AppIcon.appiconset/icon-1024.png
 ```
 
-Re-run `generate_xcodeproj.py` after adding or removing a Swift file —
-it auto-discovers everything under `Things/`.
+Re-run `generate_xcodeproj.py` after adding or removing a Swift file — it auto-discovers everything under `Things/`.
