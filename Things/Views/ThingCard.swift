@@ -106,20 +106,28 @@ struct DateHeader: View {
     let count: Int
 
     var body: some View {
-        let isToday = DateUtil.daysFromToday(iso) == 0
-        let isPast  = DateUtil.daysFromToday(iso) < 0
-        let label   = DateUtil.dayLabel(iso)
-        let meta    = DateUtil.dayMeta(iso)
+        let isUntimed = iso == "—"
+        let isToday = !isUntimed && DateUtil.daysFromToday(iso) == 0
+        let isPast  = !isUntimed && DateUtil.daysFromToday(iso) < 0
+        let label   = isUntimed ? "Untimed" : DateUtil.dayLabel(iso)
 
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             Text(label)
                 .font(Fonts.display(15, weight: .semibold))
                 .foregroundColor(isToday ? Theme.text : Theme.textDim)
                 .tracking(-0.2)
-            Text("\(meta.month) \(meta.day) · \(count)")
-                .font(Fonts.mono(10))
-                .foregroundColor(Theme.textFaint)
-                .tracking(0.4)
+            if isUntimed {
+                Text("· \(count)")
+                    .font(Fonts.mono(10))
+                    .foregroundColor(Theme.textFaint)
+                    .tracking(0.4)
+            } else {
+                let meta = DateUtil.dayMeta(iso)
+                Text("\(meta.month) \(meta.day) · \(count)")
+                    .font(Fonts.mono(10))
+                    .foregroundColor(Theme.textFaint)
+                    .tracking(0.4)
+            }
             Spacer()
             if isToday {
                 Circle().fill(Theme.accent).frame(width: 6, height: 6)
