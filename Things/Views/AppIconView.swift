@@ -15,22 +15,7 @@ struct AppIconView: View {
                 endPoint: .bottom
             )
 
-            // Binding dots
-            HStack {
-                ForEach(0..<3, id: \.self) { index in
-                    Circle()
-                        .fill(Color(hex: 0x0E0E10))
-                        .frame(width: size * 0.08, height: size * 0.08)
-                        .shadow(color: .black.opacity(0.5), radius: 0.5, x: 0, y: 0.5)
-                    if index < 2 {
-                        Spacer()
-                    }
-                }
-            }
-            .frame(width: size * 0.78)
-            .position(x: size * 0.5, y: size * 0.11)
-
-            // Lines — accent bar + neutral
+            // Lines — accent bar + neutral (centered, no binding dots)
             VStack(alignment: .leading, spacing: size * 0.09) {
                 Rectangle()
                     .fill(Theme.accent)
@@ -46,7 +31,7 @@ struct AppIconView: View {
                     .clipShape(Capsule())
             }
             .frame(width: size * 0.76, alignment: .leading)
-            .position(x: size * 0.5, y: size * 0.40)
+            .position(x: size * 0.5, y: size * 0.46)
         }
         .frame(width: size, height: size)
         .clipShape(RoundedRectangle(cornerRadius: rounded ? r : 0, style: .continuous))

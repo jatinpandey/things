@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct HomeView: View {
     @ObservedObject var store: ThingsStore
@@ -49,10 +50,11 @@ struct HomeView: View {
                             }
                             SearchBar(query: $query)
                         }
-                        .padding(.vertical, 8)
+                        .padding(.top, 8)
+                        .padding(.bottom, 2)
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
-                        .listRowInsets(EdgeInsets(top: 0, leading: 18, bottom: 12, trailing: 18))
+                        .listRowInsets(EdgeInsets(top: 0, leading: 18, bottom: 0, trailing: 18))
                     }
 
                     ForEach(groups) { g in
@@ -67,6 +69,13 @@ struct HomeView: View {
                                 .listRowBackground(Color.clear)
                                 .listRowSeparator(.hidden)
                                 .listRowInsets(EdgeInsets(top: 4, leading: 18, bottom: 4, trailing: 18))
+                                .simultaneousGesture(
+                                    LongPressGesture(minimumDuration: 0.45)
+                                        .onEnded { _ in
+                                            guard canReorder, g.items.count > 1 else { return }
+                                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                        }
+                                )
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                     Button {
                                         withAnimation { store.markCompleted(id: item.id) }
@@ -83,7 +92,7 @@ struct HomeView: View {
                         } header: {
                             DateHeader(iso: g.date, count: g.items.count)
                                 .padding(.horizontal, 18)
-                                .padding(.top, 8)
+                                .padding(.top, 4)
                                 .listRowInsets(EdgeInsets())
                                 .background(Theme.bg)
                         }
@@ -112,6 +121,8 @@ struct HomeView: View {
                     }
                 }
                 .listStyle(.plain)
+                .listSectionSpacing(.compact)
+                .scrollIndicators(.hidden)
                 .scrollContentBackground(.hidden)
                 .background(Theme.bg)
                 .scrollDismissesKeyboard(.interactively)

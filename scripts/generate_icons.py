@@ -21,7 +21,6 @@ SIZE = 1024
 ACCENT = (162, 132, 244, 255)         # violet
 PAPER_TOP = (42, 42, 46, 255)
 PAPER_BOT = (30, 30, 34, 255)
-HOLE = (14, 14, 16, 255)
 LINE_DIM_1 = (255, 255, 255, 46)      # ~0.18 alpha
 LINE_DIM_2 = (255, 255, 255, 31)      # ~0.12 alpha
 
@@ -44,25 +43,11 @@ def main():
     icon = vertical_gradient(SIZE, PAPER_TOP, PAPER_BOT)
     draw = ImageDraw.Draw(icon, "RGBA")
 
-    # Binding dots — 3 holes near top. The notepad surface is the icon canvas;
-    # the final rounded app-icon boundary is supplied by iOS, not this asset.
-    dot_d = int(SIZE * 0.08)
-    dots_y = int(SIZE * 0.07)
-    dots_left = int(SIZE * 0.11)
-    dots_right = int(SIZE * 0.89)
-    for i in range(3):
-        cx = dots_left + (dots_right - dots_left) * i // 2
-        cy = dots_y + dot_d // 2
-        draw.ellipse(
-            (cx - dot_d // 2, cy - dot_d // 2, cx + dot_d // 2, cy + dot_d // 2),
-            fill=HOLE,
-        )
-
-    # Lines — accent bar + neutral lines
+    # Lines — accent bar + neutral lines (centered vertically since dots are gone)
     lines_left = int(SIZE * 0.12)
     lines_right = int(SIZE * 0.88)
     lines_width = lines_right - lines_left
-    line_y = int(SIZE * 0.30)
+    line_y = int(SIZE * 0.36)
     gap = int(SIZE * 0.09)
 
     # Accent bar (60% width, slightly thicker, rounded)

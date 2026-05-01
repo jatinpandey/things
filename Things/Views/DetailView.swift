@@ -229,6 +229,7 @@ struct DetailView: View {
     private func saveDraft() {
         guard canSave else { return }
         store.save(draft)
+        store.showToast("Changes saved")
     }
 }
 

@@ -105,6 +105,17 @@ struct DatePickerRow: View {
 
     private var isPick: Bool { value != todayISO && value != tomorrowISO }
 
+    /// Short label for the Custom pill once a date has been picked.
+    /// e.g. "Yesterday", "Mon, May 5".
+    private var customPillLabel: String {
+        let diff = DateUtil.daysFromToday(value)
+        if diff == -1 { return "Yesterday" }
+        if diff > 1 && diff < 7 { return DateUtil.dayLabel(value) } // "Wednesday"
+        // Far dates → "Mon · May 5"
+        let meta = DateUtil.dayMeta(value)
+        return "\(meta.month) \(meta.day)"
+    }
+
     var body: some View {
         if quickChoices {
             quickChoicePicker
@@ -122,7 +133,10 @@ struct DatePickerRow: View {
                 pill(active: value == tomorrowISO, label: "Tomorrow") {
                     value = tomorrowISO; openPick = false
                 }
-                pill(active: isPick || openPick, label: "Custom") {
+                pill(
+                    active: isPick || openPick,
+                    label: isPick ? customPillLabel : "Custom"
+                ) {
                     openPick.toggle()
                 }
                 Spacer(minLength: 0)
@@ -319,6 +333,7 @@ struct EditorView: View {
                     Button(action: {
                         if canSave {
                             store.save(thing)
+                            store.showToast(isNew ? "Thing added" : "Changes saved")
                             close()
                         }
                     }) {

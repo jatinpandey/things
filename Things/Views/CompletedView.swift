@@ -117,6 +117,8 @@ struct CompletedView: View {
                     }
                 }
                 .listStyle(.plain)
+                .listSectionSpacing(.compact)
+                .scrollIndicators(.hidden)
                 .scrollContentBackground(.hidden)
                 .background(Theme.bg)
             }
