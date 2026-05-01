@@ -122,12 +122,12 @@ struct DatePickerRow: View {
                 pill(active: value == tomorrowISO, label: "Tomorrow") {
                     value = tomorrowISO; openPick = false
                 }
-                pill(active: isPick || openPick, label: isPick ? DateUtil.dayLabel(value) : "Pick…") {
+                pill(active: isPick || openPick, label: "Custom") {
                     openPick.toggle()
                 }
                 Spacer(minLength: 0)
             }
-            if openPick || isPick {
+            if openPick {
                 DatePicker(
                     "",
                     selection: Binding(
@@ -136,10 +136,14 @@ struct DatePickerRow: View {
                     ),
                     displayedComponents: .date
                 )
-                .datePickerStyle(.compact)
+                .datePickerStyle(.graphical)
                 .labelsHidden()
                 .colorScheme(.dark)
                 .tint(Theme.accent)
+                .padding(10)
+                .background(Theme.surface)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .hairlineBorder(Theme.hairline, radius: 12)
             }
         }
     }

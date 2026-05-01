@@ -20,6 +20,22 @@ final class ThingsStore: ObservableObject {
         things[i].starred.toggle()
     }
 
+    func reorderWithinDate(movingID: Int, over targetID: Int) {
+        guard movingID != targetID,
+              let from = things.firstIndex(where: { $0.id == movingID }),
+              let to = things.firstIndex(where: { $0.id == targetID }) else { return }
+
+        let moving = things[from]
+        let target = things[to]
+        guard !moving.completed,
+              !target.completed,
+              (moving.date ?? "—") == (target.date ?? "—") else { return }
+
+        let item = things.remove(at: from)
+        let insertAt = min(to, things.endIndex)
+        things.insert(item, at: insertAt)
+    }
+
     func save(_ next: Thing) {
         if let i = things.firstIndex(where: { $0.id == next.id }) {
             things[i] = next

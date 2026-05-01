@@ -139,3 +139,17 @@ struct SearchIcon: View {
         .frame(width: size, height: size)
     }
 }
+
+struct DragHandleIcon: View {
+    var size: CGFloat = 18
+    var color: Color = Theme.textFaint
+
+    var body: some View {
+        VStack(spacing: size * 0.18) {
+            Capsule().fill(color).frame(width: size * 0.78, height: max(1.4, size * 0.11))
+            Capsule().fill(color).frame(width: size * 0.78, height: max(1.4, size * 0.11))
+            Capsule().fill(color).frame(width: size * 0.78, height: max(1.4, size * 0.11))
+        }
+        .frame(width: size, height: size)
+    }
+}

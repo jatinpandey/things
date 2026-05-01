@@ -78,27 +78,16 @@ struct ThingGroup: Identifiable {
 }
 
 func groupByDate(_ things: [Thing]) -> [ThingGroup] {
-    let withDate = things.compactMap { t -> (String, Thing)? in
-        guard let d = t.date else { return nil }
-        return (d, t)
+    let dates = Set(things.compactMap(\.date)).sorted()
+    var groups = dates.map { date in
+        ThingGroup(date: date, items: things.filter { $0.date == date })
     }
-    let undated = things.filter { $0.date == nil }
 
-    let sorted = withDate.sorted { $0.0 < $1.0 }
-    var groups: [ThingGroup] = []
-    for (date, t) in sorted {
-        if let idx = groups.firstIndex(where: { $0.date == date }) {
-            groups[idx].items.append(t)
-        } else {
-            groups.append(ThingGroup(date: date, items: [t]))
-        }
-    }
-    for i in groups.indices {
-        groups[i].items.sort { ($0.starred ? 1 : 0) > ($1.starred ? 1 : 0) }
-    }
+    let undated = things.filter { $0.date == nil }
     if !undated.isEmpty {
-        groups.append(ThingGroup(date: "—", items: undated.sorted { ($0.starred ? 1 : 0) > ($1.starred ? 1 : 0) }))
+        groups.append(ThingGroup(date: "—", items: undated))
     }
+
     return groups
 }
 

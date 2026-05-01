@@ -36,6 +36,8 @@ struct ThingCard: View {
     let thing: Thing
     var onTap: (() -> Void)? = nil
     var onToggleStar: () -> Void
+    var onReorderDrag: ((DragGesture.Value) -> Void)? = nil
+    var onReorderEnd: (() -> Void)? = nil
 
     var body: some View {
         cardBody
@@ -66,15 +68,29 @@ struct ThingCard: View {
                 onTap?()
             }
 
-            Button(action: onToggleStar) {
-                StarIcon(filled: thing.starred,
-                         size: 18,
-                         color: thing.starred ? Theme.accent : Theme.textFaint)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
+            HStack(spacing: 0) {
+                Button(action: onToggleStar) {
+                    StarIcon(filled: thing.starred,
+                             size: 18,
+                             color: thing.starred ? Theme.accent : Theme.textFaint)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(thing.starred ? "Remove favorite" : "Add favorite")
+
+                if let onReorderDrag {
+                    DragHandleIcon(size: 18, color: Theme.textFaint)
+                        .frame(width: 34, height: 44)
+                        .contentShape(Rectangle())
+                        .gesture(
+                            DragGesture(minimumDistance: 0, coordinateSpace: .global)
+                                .onChanged(onReorderDrag)
+                                .onEnded { _ in onReorderEnd?() }
+                        )
+                        .accessibilityLabel("Reorder thing")
+                }
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel(thing.starred ? "Remove favorite" : "Add favorite")
             .padding(.top, -10)
             .padding(.trailing, -10)
         }

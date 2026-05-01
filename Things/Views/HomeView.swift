@@ -1,9 +1,13 @@
 import SwiftUI
+import UIKit
 
 struct HomeView: View {
     @ObservedObject var store: ThingsStore
     @State private var query: String = ""
     @State private var selectedThingID: Int?
+    @State private var draggedThingID: Int?
+    @State private var rowFrames: [Int: CGRect] = [:]
+    @State private var reorderFeedback = UISelectionFeedbackGenerator()
 
     private var filtered: [Thing] {
         let active = store.active
@@ -55,10 +59,26 @@ struct HomeView: View {
                     ForEach(groups) { g in
                         Section {
                             ForEach(g.items) { item in
+                                let canReorder = query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && g.items.count > 1
                                 ThingCard(
                                     thing: item,
                                     onTap: { selectedThingID = item.id },
-                                    onToggleStar: { store.toggleStar(id: item.id) }
+                                    onToggleStar: { store.toggleStar(id: item.id) },
+                                    onReorderDrag: canReorder ? { value in
+                                        handleReorderDrag(value, moving: item, in: g.items)
+                                    } : nil,
+                                    onReorderEnd: {
+                                        draggedThingID = nil
+                                    }
+                                )
+                                .opacity(draggedThingID == item.id ? 0.55 : 1)
+                                .background(
+                                    GeometryReader { proxy in
+                                        Color.clear.preference(
+                                            key: ThingRowFramePreferenceKey.self,
+                                            value: [item.id: proxy.frame(in: .global)]
+                                        )
+                                    }
                                 )
                                 .listRowBackground(Color.clear)
                                 .listRowSeparator(.hidden)
@@ -107,6 +127,7 @@ struct HomeView: View {
                 .scrollContentBackground(.hidden)
                 .background(Theme.bg)
                 .scrollDismissesKeyboard(.interactively)
+                .onPreferenceChange(ThingRowFramePreferenceKey.self) { rowFrames = $0 }
             }
         }
         .navigationDestination(isPresented: Binding(
@@ -122,6 +143,35 @@ struct HomeView: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
+    }
+
+    private func handleReorderDrag(_ value: DragGesture.Value, moving item: Thing, in sameDayItems: [Thing]) {
+        if draggedThingID == nil {
+            draggedThingID = item.id
+            reorderFeedback.prepare()
+        }
+
+        guard draggedThingID == item.id else { return }
+
+        let locationY = value.location.y
+        guard let target = sameDayItems.first(where: { candidate in
+            guard candidate.id != item.id, let frame = rowFrames[candidate.id] else { return false }
+            return frame.minY <= locationY && locationY <= frame.maxY
+        }) else { return }
+
+        withAnimation(.spring(response: 0.24, dampingFraction: 0.88)) {
+            store.reorderWithinDate(movingID: item.id, over: target.id)
+        }
+        reorderFeedback.selectionChanged()
+        reorderFeedback.prepare()
+    }
+}
+
+private struct ThingRowFramePreferenceKey: PreferenceKey {
+    static var defaultValue: [Int: CGRect] = [:]
+
+    static func reduce(value: inout [Int: CGRect], nextValue: () -> [Int: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
     }
 }
 

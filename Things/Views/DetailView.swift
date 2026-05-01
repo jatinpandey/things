@@ -6,22 +6,18 @@ struct DetailView: View {
     let thingID: Int
     @Environment(\.dismiss) private var dismiss
     @State private var pendingDelete = false
+    @State private var draft = Thing(id: -1, name: "", date: nil, tags: [], starred: false)
     @FocusState private var nameFocused: Bool
 
     private var thing: Thing? { store.things.first(where: { $0.id == thingID }) }
 
-    private var thingBinding: Binding<Thing> {
-        Binding(
-            get: {
-                store.things.first(where: { $0.id == thingID })
-                    ?? Thing(id: thingID, name: "", date: nil, tags: [], starred: false)
-            },
-            set: { new in
-                if let i = store.things.firstIndex(where: { $0.id == thingID }) {
-                    store.things[i] = new
-                }
-            }
-        )
+    private var hasChanges: Bool {
+        guard let thing else { return false }
+        return draft == thing ? false : draft.id == thing.id
+    }
+
+    private var canSave: Bool {
+        hasChanges && !draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
@@ -45,13 +41,26 @@ struct DetailView: View {
                         }
                         .buttonStyle(.plain)
                         Spacer()
+                        Button(action: saveDraft) {
+                            Text("Save")
+                                .font(Fonts.sans(13, weight: .semibold))
+                                .foregroundColor(canSave ? Theme.bg : Theme.textFaint)
+                                .tracking(-0.1)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 7)
+                                .background(
+                                    Capsule().fill(canSave ? Theme.text : Color.clear)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(!canSave)
                     }
                     .padding(.horizontal, 14)
                     .padding(.top, 12)
                     .padding(.bottom, 10)
 
                     ScrollView {
-                        editorBody(thing: thing)
+                        editorBody(thing: draft.id == thing.id ? draft : thing)
                             .padding(.horizontal, 20)
                             .padding(.bottom, 30)
                     }
@@ -77,11 +86,17 @@ struct DetailView: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .enableSwipeBack()
+        .onAppear {
+            syncDraftIfNeeded()
+        }
     }
 
     @ViewBuilder
     private func editorBody(thing: Thing) -> some View {
-        let b = thingBinding
+        let b = Binding<Thing>(
+            get: { draft.id == thing.id ? draft : thing },
+            set: { draft = $0 }
+        )
 
         VStack(spacing: 0) {
             FieldRow(label: "Title") {
@@ -101,11 +116,15 @@ struct DetailView: View {
                     .textFieldStyle(.plain)
                     .strikethrough(thing.completed, color: Theme.textFaint)
                     
-                    Button(action: { store.toggleStar(id: thing.id) }) {
+                    Button(action: {
+                        var next = b.wrappedValue
+                        next.starred.toggle()
+                        b.wrappedValue = next
+                    }) {
                         StarIcon(
-                            filled: thing.starred,
+                            filled: b.wrappedValue.starred,
                             size: 22,
-                            color: thing.starred ? Theme.accent : Theme.textFaint
+                            color: b.wrappedValue.starred ? Theme.accent : Theme.textFaint
                         )
                         .padding(4)
                     }
@@ -157,17 +176,20 @@ struct DetailView: View {
 
             VStack(spacing: 10) {
                 Button {
-                    if thing.completed {
-                        store.markActive(id: thing.id)
+                    var next = b.wrappedValue
+                    if next.completed {
+                        next.completed = false
+                        next.completedAt = nil
                     } else {
-                        store.markCompleted(id: thing.id)
+                        next.completed = true
+                        next.completedAt = Date()
                     }
-                    dismiss()
+                    b.wrappedValue = next
                 } label: {
                     HStack(spacing: 6) {
-                        Image(systemName: thing.completed ? "arrow.uturn.backward" : "checkmark")
+                        Image(systemName: b.wrappedValue.completed ? "arrow.uturn.backward" : "checkmark")
                             .font(.system(size: 12, weight: .semibold))
-                        Text(thing.completed ? "MARK ACTIVE" : "MARK DONE")
+                        Text(b.wrappedValue.completed ? "MARK ACTIVE" : "MARK DONE")
                             .font(Fonts.mono(11, weight: .medium))
                             .tracking(0.6)
                     }
@@ -196,6 +218,16 @@ struct DetailView: View {
             }
             .padding(.top, 28)
         }
+    }
+
+    private func syncDraftIfNeeded() {
+        guard let thing, draft.id != thing.id else { return }
+        draft = thing
+    }
+
+    private func saveDraft() {
+        guard canSave else { return }
+        store.save(draft)
     }
 }
 
