@@ -5,6 +5,10 @@ struct HomeView: View {
     @ObservedObject var store: ThingsStore
     @State private var query: String = ""
     @State private var selectedThingID: Int?
+    @State private var movableThingID: Int?
+    @State private var activeReorderActivationID: Int?
+    @State private var reorderActivationFeedback = UIImpactFeedbackGenerator(style: .heavy)
+    @State private var reorderMoveFeedback = UISelectionFeedbackGenerator()
 
     private var filtered: [Thing] {
         let active = store.active
@@ -66,22 +70,16 @@ struct HomeView: View {
                                     onToggleStar: { store.toggleStar(id: item.id) },
                                     showHandle: canReorder && g.items.count > 1
                                 )
-                                // Theme.bg (not .clear) so the row's lift
-                                // snapshot is composed on our dark background
-                                // instead of the system's default black canvas.
-                                .listRowBackground(Theme.bg)
+                                .scaleEffect(movableThingID == item.id ? 1.025 : 1)
+                                .animation(.spring(response: 0.22, dampingFraction: 0.82), value: movableThingID)
+                                .listRowBackground(Theme.bg.opacity(0.01))
                                 .listRowSeparator(.hidden)
                                 .listRowInsets(EdgeInsets(top: 4, leading: 18, bottom: 4, trailing: 18))
-                                // Slightly earlier than iOS's ~0.5s reorder
-                                // activation so the haptic precedes (and
-                                // accompanies) the visible lift.
                                 .simultaneousGesture(
-                                    LongPressGesture(minimumDuration: 0.4)
+                                    LongPressGesture(minimumDuration: 0.38)
                                         .onEnded { _ in
                                             guard canReorder, g.items.count > 1 else { return }
-                                            let g = UIImpactFeedbackGenerator(style: .rigid)
-                                            g.prepare()
-                                            g.impactOccurred()
+                                            signalReorderActivation(for: item.id)
                                         }
                                 )
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -96,6 +94,7 @@ struct HomeView: View {
                             .onMove { source, destination in
                                 guard canReorder else { return }
                                 store.move(within: g.items, from: source, to: destination)
+                                signalReorderMove()
                             }
                         } header: {
                             DateHeader(iso: g.date, count: g.items.count)
@@ -148,6 +147,30 @@ struct HomeView: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
+    }
+
+    private func signalReorderActivation(for id: Int) {
+        guard activeReorderActivationID == nil else { return }
+        activeReorderActivationID = id
+        movableThingID = id
+        reorderActivationFeedback.impactOccurred(intensity: 1)
+        reorderActivationFeedback.prepare()
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            if movableThingID == id {
+                movableThingID = nil
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            if activeReorderActivationID == id {
+                activeReorderActivationID = nil
+            }
+        }
+    }
+
+    private func signalReorderMove() {
+        reorderMoveFeedback.selectionChanged()
+        reorderMoveFeedback.prepare()
     }
 }
 
