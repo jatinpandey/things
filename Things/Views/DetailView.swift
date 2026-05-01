@@ -82,7 +82,7 @@ struct DetailView: View {
         let b = thingBinding
 
         VStack(spacing: 0) {
-            FieldRow(label: "Thing") {
+            FieldRow(label: "Title") {
                 HStack(alignment: .top, spacing: 10) {
                     TextField(
                         "",
