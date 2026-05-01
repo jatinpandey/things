@@ -36,6 +36,27 @@ final class ThingsStore: ObservableObject {
         things.insert(item, at: insertAt)
     }
 
+    /// Apply an explicit ordering of IDs into `things`, preserving the absolute
+    /// positions held by items not contained in `orderedIDs`.
+    func setOrder(_ orderedIDs: [Int]) {
+        guard !orderedIDs.isEmpty else { return }
+        let idSet = Set(orderedIDs)
+        let lookup = Dictionary(uniqueKeysWithValues: things.compactMap { idSet.contains($0.id) ? ($0.id, $0) : nil })
+        var iter = orderedIDs.makeIterator()
+        var rebuilt: [Thing] = []
+        rebuilt.reserveCapacity(things.count)
+        for thing in things {
+            if idSet.contains(thing.id) {
+                if let nextID = iter.next(), let next = lookup[nextID] {
+                    rebuilt.append(next)
+                }
+            } else {
+                rebuilt.append(thing)
+            }
+        }
+        things = rebuilt
+    }
+
     func save(_ next: Thing) {
         if let i = things.firstIndex(where: { $0.id == next.id }) {
             things[i] = next
