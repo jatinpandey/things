@@ -2,6 +2,27 @@ import SwiftUI
 
 enum AppTab: Hashable { case home, completed }
 
+enum AppAppearance: String, CaseIterable, Identifiable {
+    case light = "Light"
+    case dark = "Dark"
+
+    var id: Self { self }
+
+    var colorScheme: ColorScheme {
+        switch self {
+        case .light: .light
+        case .dark: .dark
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .light: "sun.max"
+        case .dark: "moon"
+        }
+    }
+}
+
 @MainActor
 final class ThingsStore: ObservableObject {
     let listID: UUID
@@ -152,6 +173,7 @@ struct ContentView: View {
     @StateObject private var listsStore = ThingListsStore()
     @State private var selectedListID: UUID?
     @State private var showingNewList = false
+    @State private var appearance: AppAppearance = .dark
 
     var body: some View {
         ZStack {
@@ -175,11 +197,11 @@ struct ContentView: View {
             }
         }
         .animation(.easeInOut(duration: 0.28), value: selectedListID)
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(appearance.colorScheme)
         .sheet(isPresented: $showingNewList) {
             NewListSheet(store: listsStore)
                 .presentationDetents([.height(220)])
-                .preferredColorScheme(.dark)
+                .preferredColorScheme(appearance.colorScheme)
         }
         .onChange(of: listsStore.lists) { _, lists in
             if let selectedListID, !lists.contains(where: { $0.id == selectedListID }) {
@@ -191,6 +213,7 @@ struct ContentView: View {
     private var listsRoot: some View {
         ListsHomeView(
             store: listsStore,
+            appearance: $appearance,
             onSelect: { selectedListID = $0 },
             onAdd: { showingNewList = true }
         )
@@ -199,11 +222,12 @@ struct ContentView: View {
 
 struct ListsHomeView: View {
     @ObservedObject var store: ThingListsStore
+    @Binding var appearance: AppAppearance
     let onSelect: (UUID) -> Void
     let onAdd: () -> Void
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .bottom) {
             Theme.bg.ignoresSafeArea()
 
             ScrollView {
@@ -244,11 +268,49 @@ struct ListsHomeView: View {
                     }
                 }
                 .padding(.horizontal, 18)
-                .padding(.bottom, 30)
+                .padding(.bottom, 104)
             }
             .scrollBounceBehavior(.basedOnSize)
+
+            AppearancePicker(selection: $appearance)
+                .padding(.horizontal, 18)
+                .padding(.bottom, 18)
         }
         .toolbar(.hidden, for: .navigationBar)
+    }
+}
+
+private struct AppearancePicker: View {
+    @Binding var selection: AppAppearance
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(AppAppearance.allCases) { appearance in
+                Button {
+                    selection = appearance
+                } label: {
+                    HStack(spacing: 7) {
+                        Image(systemName: appearance.icon)
+                            .font(.system(size: 13, weight: .semibold))
+                        Text(appearance.rawValue)
+                            .font(Fonts.sans(13, weight: .semibold))
+                            .tracking(-0.1)
+                    }
+                    .foregroundColor(selection == appearance ? Theme.bg : Theme.textDim)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(
+                        Capsule().fill(selection == appearance ? Theme.text : Color.clear)
+                    )
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(Theme.surface)
+        .clipShape(Capsule())
+        .hairlineBorder(Theme.hairline, radius: 999)
     }
 }
 
@@ -440,7 +502,6 @@ private struct ThingListContentView: View {
                     onClose: { showingAdd = false }
                 )
             }
-            .preferredColorScheme(.dark)
         }
         .overlay(alignment: .top) {
             if let msg = store.toastMessage {

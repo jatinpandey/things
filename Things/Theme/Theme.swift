@@ -1,24 +1,25 @@
 import SwiftUI
+import UIKit
 
 enum Theme {
-    static let bg            = Color(hex: 0x0E0E10)
-    static let bgDeep        = Color(hex: 0x08080A)
-    static let surface       = Color(hex: 0x161618)
-    static let surface2      = Color(hex: 0x1E1E22)
-    static let hairline      = Color(hex: 0x26262B)
-    static let hairlineSoft  = Color(hex: 0x1F1F23)
-    static let text          = Color(hex: 0xF2F2F4)
-    static let textDim       = Color(hex: 0x9A9AA2)
-    static let textFaint     = Color(hex: 0x5E5E67)
-    static let danger        = Color(hex: 0xE85B4D)
+    static let bg            = Color(lightHex: 0xF7F7F5, darkHex: 0x0E0E10)
+    static let bgDeep        = Color(lightHex: 0xEFEFEB, darkHex: 0x08080A)
+    static let surface       = Color(lightHex: 0xFFFFFF, darkHex: 0x161618)
+    static let surface2      = Color(lightHex: 0xECECEA, darkHex: 0x1E1E22)
+    static let hairline      = Color(lightHex: 0xDDDDD8, darkHex: 0x26262B)
+    static let hairlineSoft  = Color(lightHex: 0xE7E7E2, darkHex: 0x1F1F23)
+    static let text          = Color(lightHex: 0x151517, darkHex: 0xF2F2F4)
+    static let textDim       = Color(lightHex: 0x69696F, darkHex: 0x9A9AA2)
+    static let textFaint     = Color(lightHex: 0x9A9A9E, darkHex: 0x5E5E67)
+    static let danger        = Color(lightHex: 0xD64538, darkHex: 0xE85B4D)
 
     // Violet accent (replacing amber)
-    static let accent        = Color(hex: 0xA284F4)
-    static let accentDim     = Color(red: 162/255, green: 132/255, blue: 244/255, opacity: 0.14)
-    static let accentBorder  = Color(red: 162/255, green: 132/255, blue: 244/255, opacity: 0.30)
-    static let accentBorderStrong = Color(red: 162/255, green: 132/255, blue: 244/255, opacity: 0.35)
-    static let accentTintTop = Color(red: 162/255, green: 132/255, blue: 244/255, opacity: 0.06)
-    static let accentTintBot = Color(red: 162/255, green: 132/255, blue: 244/255, opacity: 0.02)
+    static let accent        = Color(lightHex: 0x6F55D8, darkHex: 0xA284F4)
+    static let accentDim     = Color(lightHex: 0x6F55D8, darkHex: 0xA284F4, opacity: 0.14)
+    static let accentBorder  = Color(lightHex: 0x6F55D8, darkHex: 0xA284F4, opacity: 0.30)
+    static let accentBorderStrong = Color(lightHex: 0x6F55D8, darkHex: 0xA284F4, opacity: 0.35)
+    static let accentTintTop = Color(lightHex: 0x6F55D8, darkHex: 0xA284F4, opacity: 0.06)
+    static let accentTintBot = Color(lightHex: 0x6F55D8, darkHex: 0xA284F4, opacity: 0.02)
 }
 
 enum Fonts {
@@ -41,6 +42,18 @@ extension Color {
             blue:  Double( hex        & 0xFF) / 255,
             opacity: opacity
         )
+    }
+
+    init(lightHex: UInt32, darkHex: UInt32, opacity: Double = 1) {
+        self.init(UIColor { traits in
+            let hex = traits.userInterfaceStyle == .dark ? darkHex : lightHex
+            return UIColor(
+                red: Double((hex >> 16) & 0xFF) / 255,
+                green: Double((hex >> 8) & 0xFF) / 255,
+                blue: Double(hex & 0xFF) / 255,
+                alpha: opacity
+            )
+        })
     }
 }
 
