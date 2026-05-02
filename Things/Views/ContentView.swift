@@ -199,7 +199,7 @@ struct ListsHomeView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    HStack(alignment: .lastTextBaseline) {
+                    HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Things")
                                 .font(Fonts.display(32, weight: .semibold))
@@ -503,8 +503,8 @@ struct BottomBar: View {
             ) { selection = .completed }
         }
         .padding(.horizontal, 28)
-        .padding(.top, 12)
-        .padding(.bottom, 20)
+        .padding(.top, 6)
+        .padding(.bottom, 10)
         .frame(maxWidth: .infinity)
         .background(Theme.bg)
         .overlay(alignment: .top) {
@@ -523,10 +523,10 @@ private struct BarButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 24, weight: .semibold))
+                .font(.system(size: 20, weight: .semibold))
                 .foregroundColor(active ? Theme.text : Theme.textDim)
                 .frame(maxWidth: .infinity)
-                .frame(height: 52)
+                .frame(height: 36)
                 .contentShape(Rectangle())
         }
         .buttonStyle(BarButtonStyle())
