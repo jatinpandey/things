@@ -414,8 +414,6 @@ private struct ThingListContentView: View {
                 selection: $selection,
                 onAdd: { showingAdd = true }
             )
-            .padding(.horizontal, 36)
-            .padding(.bottom, 6)
         }
         .background(Theme.bg.ignoresSafeArea())
         .sheet(isPresented: $showingAdd) {
@@ -485,7 +483,7 @@ struct BottomBar: View {
     var body: some View {
         HStack(spacing: 0) {
             BarButton(
-                icon: "house.fill",
+                icon: "list.bullet",
                 label: "List",
                 active: selection == .home
             ) { selection = .home }
@@ -504,13 +502,15 @@ struct BottomBar: View {
                 active: selection == .completed
             ) { selection = .completed }
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 6)
-        .background(.ultraThinMaterial, in: Capsule())
-        .overlay(
-            Capsule().strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5)
-        )
-        .shadow(color: .black.opacity(0.5), radius: 18, x: 0, y: 10)
+        .padding(.horizontal, 28)
+        .padding(.top, 12)
+        .padding(.bottom, 20)
+        .frame(maxWidth: .infinity)
+        .background(Theme.bg)
+        .overlay(alignment: .top) {
+            Rectangle().fill(Theme.hairlineSoft).frame(height: 0.5)
+        }
+        .ignoresSafeArea(edges: .bottom)
     }
 }
 
@@ -522,23 +522,15 @@ private struct BarButton: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 2) {
-                Image(systemName: icon)
-                    .font(.system(size: 17, weight: .semibold))
-                Text(label)
-                    .font(.system(size: 10, weight: .medium))
-                    .tracking(-0.05)
-            }
-            .foregroundColor(active ? Theme.accent : Theme.textDim)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 7)
-            .background(
-                Capsule()
-                    .fill(active ? Theme.accentDim : Color.clear)
-            )
-            .contentShape(Capsule())
+            Image(systemName: icon)
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundColor(active ? Theme.text : Theme.textDim)
+                .frame(maxWidth: .infinity)
+                .frame(height: 52)
+                .contentShape(Rectangle())
         }
         .buttonStyle(BarButtonStyle())
+        .accessibilityLabel(label)
     }
 }
 
