@@ -154,7 +154,7 @@ struct ContentView: View {
     @State private var showingNewList = false
 
     var body: some View {
-        Group {
+        ZStack {
             if let selectedListID, listsStore.list(for: selectedListID) != nil {
                 ThingListContentView(
                     listID: selectedListID,
@@ -162,10 +162,19 @@ struct ContentView: View {
                     onBack: { self.selectedListID = nil }
                 )
                 .id(selectedListID)
+                .transition(.asymmetric(
+                    insertion: .move(edge: .trailing),
+                    removal: .move(edge: .trailing)
+                ))
             } else {
                 listsRoot
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .leading),
+                        removal: .move(edge: .leading)
+                    ))
             }
         }
+        .animation(.easeInOut(duration: 0.28), value: selectedListID)
         .preferredColorScheme(.dark)
         .sheet(isPresented: $showingNewList) {
             NewListSheet(store: listsStore)
