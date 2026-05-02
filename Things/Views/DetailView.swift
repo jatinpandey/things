@@ -115,6 +115,10 @@ struct DetailView: View {
                     .tracking(-0.4)
                     .lineLimit(1...4)
                     .textFieldStyle(.plain)
+                    .textContentType(.none)
+                    .autocorrectionDisabled(true)
+                    .textInputAutocapitalization(.sentences)
+                    .submitLabel(.done)
                     .strikethrough(thing.completed, color: Theme.textFaint)
                     
                     Button(action: {

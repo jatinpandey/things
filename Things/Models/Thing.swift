@@ -10,6 +10,18 @@ struct Thing: Identifiable, Equatable, Codable {
     var completedAt: Date? = nil
 }
 
+struct ThingList: Identifiable, Equatable, Codable {
+    var id: UUID
+    var name: String
+    var things: [Thing]
+
+    init(id: UUID = UUID(), name: String, things: [Thing] = []) {
+        self.id = id
+        self.name = name
+        self.things = things
+    }
+}
+
 enum DateUtil {
     private static var localCalendar: Calendar = {
         var c = Calendar(identifier: .gregorian)

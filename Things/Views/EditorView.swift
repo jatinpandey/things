@@ -256,7 +256,6 @@ struct TagEditor: View {
     /// out automatically; the top 5 are shown.
     var suggestions: [String] = []
     @State private var draft: String = ""
-    @FocusState private var draftFocused: Bool
 
     private var visibleSuggestions: [String] {
         let applied = Set(tags.map { $0.lowercased() })
@@ -278,12 +277,13 @@ struct TagEditor: View {
                     prompt: Text("add tag…")
                         .foregroundColor(Theme.textFaint)
                 )
-                .focused($draftFocused)
                 .font(Fonts.mono(12))
                 .foregroundColor(Theme.text)
                 .textFieldStyle(.plain)
+                .textContentType(.none)
                 .autocorrectionDisabled(true)
                 .textInputAutocapitalization(.never)
+                .submitLabel(.done)
                 .frame(minWidth: 80)
                 .padding(.horizontal, 4)
                 .padding(.vertical, 4)
@@ -448,6 +448,10 @@ struct EditorView: View {
                                 .tracking(-0.4)
                                 .lineLimit(1...4)
                                 .textFieldStyle(.plain)
+                                .textContentType(.none)
+                                .autocorrectionDisabled(true)
+                                .textInputAutocapitalization(.sentences)
+                                .submitLabel(.done)
                                 
                                 Button(action: { thing.starred.toggle() }) {
                                     StarIcon(
@@ -545,10 +549,9 @@ struct EditorView: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .onAppear {
-            if isNew {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                    nameFocused = true
-                }
+            guard isNew else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                nameFocused = true
             }
         }
     }

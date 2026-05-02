@@ -3,6 +3,7 @@
 A notepad for what's on your mind.
 
 A "thing" has a name, a date, optional tags (people / places / feelings), and the ability to star/favorite what matters.
+Things live inside named lists. The default migrated list is `things to do`, and each list has its own Home, Add, and Completed surfaces.
 Swipe-left a card to mark it completed.
 Completed cards show up on their own searchable page.
 
@@ -34,7 +35,7 @@ Things/
 │   ├── Theme.swift           # color tokens, fonts (violet accent)
 │   └── Icons.swift           # custom SwiftUI shapes
 └── Views/
-    ├── ContentView.swift     # 3-tab TabView (Home / Add / Completed)
+    ├── ContentView.swift     # top-level list picker + per-list shell
     ├── HomeView.swift        # active list, swipe-left to complete
     ├── CompletedView.swift   # done list, swipe to undo / delete
     ├── DetailView.swift      # detail + mark done / edit / delete

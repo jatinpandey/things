@@ -2,6 +2,8 @@ import SwiftUI
 
 struct CompletedView: View {
     @ObservedObject var store: ThingsStore
+    var listTitle: String?
+    var onBackToLists: (() -> Void)?
     @State private var query: String = ""
     @State private var selectedThingID: Int?
 
@@ -15,115 +17,123 @@ struct CompletedView: View {
     private var groups: [ThingGroup] { groupByCompletedDate(filtered) }
 
     var body: some View {
-        ZStack {
-            Theme.bg.ignoresSafeArea()
+        VStack(spacing: 0) {
+            if let listTitle, let onBackToLists {
+                ListContextHeader(title: listTitle, onBack: onBackToLists)
+            }
 
-            if store.completed.isEmpty {
-                VStack(spacing: 12) {
-                    Text("Completed")
-                        .font(Fonts.display(28, weight: .semibold))
-                        .foregroundColor(Theme.text)
-                        .tracking(-0.8)
-                    Text("Nothing finished yet.")
-                        .font(Fonts.display(15))
-                        .foregroundColor(Theme.textFaint)
-                        .tracking(-0.2)
-                    Text("Swipe a thing left on Home to mark it done.")
-                        .font(Fonts.mono(11))
-                        .foregroundColor(Theme.textFaint)
-                        .tracking(0.4)
-                        .multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding()
-            } else {
-                List {
-                    Section {
-                        VStack(alignment: .leading, spacing: 14) {
-                            HStack(alignment: .lastTextBaseline) {
-                                Text("Completed")
-                                    .font(Fonts.display(28, weight: .semibold))
-                                    .foregroundColor(Theme.text)
-                                    .tracking(-0.8)
-                                Spacer()
-                                Text(completedCountText)
-                                    .font(Fonts.mono(11))
-                                    .foregroundColor(Theme.textFaint)
-                                    .tracking(0.4)
-                            }
-                            SearchBar(query: $query, prompt: "Search title, tag, date, month")
-                        }
-                        .padding(.top, 8)
-                        .padding(.bottom, 2)
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                        .listRowInsets(EdgeInsets(top: 0, leading: 18, bottom: 0, trailing: 18))
+            ZStack {
+                Theme.bg.ignoresSafeArea()
+
+                if store.completed.isEmpty {
+                    VStack(spacing: 12) {
+                        Text("Completed")
+                            .font(Fonts.display(28, weight: .semibold))
+                            .foregroundColor(Theme.text)
+                            .tracking(-0.8)
+                        Text("Nothing finished yet.")
+                            .font(Fonts.display(15))
+                            .foregroundColor(Theme.textFaint)
+                            .tracking(-0.2)
+                        Text("Swipe a thing left on Home to mark it done.")
+                            .font(Fonts.mono(11))
+                            .foregroundColor(Theme.textFaint)
+                            .tracking(0.4)
+                            .multilineTextAlignment(.center)
                     }
-
-                    ForEach(groups) { g in
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding()
+                } else {
+                    List {
                         Section {
-                            ForEach(g.items) { item in
-                                ThingCard(
-                                    thing: item,
-                                    onTap: { selectedThingID = item.id },
-                                    onToggleStar: { store.toggleStar(id: item.id) }
-                                )
-                                .opacity(0.78)
-                                .listRowBackground(Color.clear)
-                                .listRowSeparator(.hidden)
-                                .listRowInsets(EdgeInsets(top: 4, leading: 18, bottom: 4, trailing: 18))
-                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                    Button {
-                                        withAnimation { store.markActive(id: item.id) }
-                                    } label: {
-                                        Label("Undo", systemImage: "arrow.uturn.backward")
-                                    }
-                                    .tint(Theme.textDim)
-
-                                    Button(role: .destructive) {
-                                        withAnimation { store.delete(id: item.id) }
-                                    } label: {
-                                        Label("Delete", systemImage: "trash")
-                                    }
+                            VStack(alignment: .leading, spacing: 14) {
+                                HStack(alignment: .lastTextBaseline) {
+                                    Text("Completed")
+                                        .font(Fonts.display(28, weight: .semibold))
+                                        .foregroundColor(Theme.text)
+                                        .tracking(-0.8)
+                                    Spacer()
+                                    Text(completedCountText)
+                                        .font(Fonts.mono(11))
+                                        .foregroundColor(Theme.textFaint)
+                                        .tracking(0.4)
                                 }
+                                SearchBar(query: $query, prompt: "Search title, tag, date, month")
                             }
-                        } header: {
-                            CompletedDateHeader(iso: g.date, count: g.items.count)
-                                .padding(.horizontal, 18)
-                                .padding(.top, 4)
-                                .listRowInsets(EdgeInsets())
-                                .background(Theme.bg)
-                        }
-                        .textCase(nil)
-                    }
-
-                    if filtered.isEmpty && !query.isEmpty {
-                        Section {
-                            Text("No completed things match “\(query)”")
-                                .font(Fonts.display(15))
-                                .foregroundColor(Theme.textFaint)
-                                .tracking(-0.2)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 60)
-                                .listRowBackground(Color.clear)
-                                .listRowSeparator(.hidden)
-                        }
-                    }
-
-                    Section {
-                        Color.clear
-                            .frame(height: 110)
+                            .padding(.top, 8)
+                            .padding(.bottom, 2)
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets(top: 0, leading: 18, bottom: 0, trailing: 18))
+                        }
+
+                        ForEach(groups) { g in
+                            Section {
+                                ForEach(g.items) { item in
+                                    ThingCard(
+                                        thing: item,
+                                        onTap: { selectedThingID = item.id },
+                                        onToggleStar: { store.toggleStar(id: item.id) }
+                                    )
+                                    .opacity(0.78)
+                                    .listRowBackground(Color.clear)
+                                    .listRowSeparator(.hidden)
+                                    .listRowInsets(EdgeInsets(top: 4, leading: 18, bottom: 4, trailing: 18))
+                                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                        Button {
+                                            withAnimation { store.markActive(id: item.id) }
+                                        } label: {
+                                            Label("Undo", systemImage: "arrow.uturn.backward")
+                                        }
+                                        .tint(Theme.textDim)
+
+                                        Button(role: .destructive) {
+                                            withAnimation { store.delete(id: item.id) }
+                                        } label: {
+                                            Label("Delete", systemImage: "trash")
+                                        }
+                                    }
+                                }
+                            } header: {
+                                CompletedDateHeader(iso: g.date, count: g.items.count)
+                                    .padding(.horizontal, 18)
+                                    .padding(.top, 4)
+                                    .listRowInsets(EdgeInsets())
+                                    .background(Theme.bg)
+                            }
+                            .textCase(nil)
+                        }
+
+                        Section {
+                            Color.clear
+                                .frame(height: 110)
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                        }
+
+                        if filtered.isEmpty && !query.isEmpty {
+                            Section {
+                                Text("No completed things match “\(query)”")
+                                    .font(Fonts.display(15))
+                                    .foregroundColor(Theme.textFaint)
+                                    .tracking(-0.2)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 60)
+                                    .listRowBackground(Color.clear)
+                                    .listRowSeparator(.hidden)
+                            }
+                        }
                     }
+                    .listStyle(.plain)
+                    .listSectionSpacing(.compact)
+                    .scrollIndicators(.hidden)
+                    .scrollContentBackground(.hidden)
+                    .background(Theme.bg)
                 }
-                .listStyle(.plain)
-                .listSectionSpacing(.compact)
-                .scrollIndicators(.hidden)
-                .scrollContentBackground(.hidden)
-                .background(Theme.bg)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .background(Theme.bg.ignoresSafeArea())
         .navigationDestination(isPresented: Binding(
             get: { selectedThingID != nil },
             set: { isPresented in

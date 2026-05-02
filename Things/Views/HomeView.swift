@@ -3,6 +3,8 @@ import UIKit
 
 struct HomeView: View {
     @ObservedObject var store: ThingsStore
+    var listTitle: String?
+    var onBackToLists: (() -> Void)?
     @State private var query: String = ""
     @State private var selectedThingID: Int?
     @State private var movableThingID: Int?
@@ -30,122 +32,133 @@ struct HomeView: View {
     private var canReorder: Bool {
         query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
+    private var displayTitle: String {
+        listTitle ?? "Things"
+    }
 
     var body: some View {
-        ZStack {
-            Theme.bg.ignoresSafeArea()
+        VStack(spacing: 0) {
+            if let listTitle, let onBackToLists {
+                ListContextHeader(title: listTitle, onBack: onBackToLists)
+            }
 
-            if store.active.isEmpty && query.isEmpty {
-                EmptyHomeState()
-            } else {
-                List {
-                    Section {
-                        VStack(alignment: .leading, spacing: 14) {
-                            HStack(alignment: .lastTextBaseline) {
-                                Text("Things")
-                                    .font(Fonts.display(28, weight: .semibold))
-                                    .foregroundColor(Theme.text)
-                                    .tracking(-0.8)
-                                Spacer()
-                                Text("\(todayCount) today · \(starredCount) starred")
-                                    .font(Fonts.mono(11))
-                                    .foregroundColor(Theme.textFaint)
-                                    .tracking(0.4)
-                            }
-                            SearchBar(query: $query)
-                        }
-                        .padding(.top, 8)
-                        .padding(.bottom, 2)
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                        .listRowInsets(EdgeInsets(top: 0, leading: 18, bottom: 0, trailing: 18))
-                    }
+            ZStack {
+                Theme.bg.ignoresSafeArea()
 
-                    ForEach(groups) { g in
+                if store.active.isEmpty && query.isEmpty {
+                    EmptyHomeState(title: displayTitle)
+                } else {
+                    List {
                         Section {
-                            ForEach(g.items) { item in
-                                ThingCard(
-                                    thing: item,
-                                    onTap: { selectedThingID = item.id },
-                                    onToggleStar: { store.toggleStar(id: item.id) },
-                                    showHandle: canReorder && g.items.count > 1
-                                )
-                                .scaleEffect(movableThingID == item.id ? 1.025 : 1)
-                                .animation(.spring(response: 0.22, dampingFraction: 0.82), value: movableThingID)
-                                .listRowBackground(Theme.bg.opacity(0.01))
-                                .listRowSeparator(.hidden)
-                                .listRowInsets(EdgeInsets(top: 4, leading: 18, bottom: 4, trailing: 18))
-                                .simultaneousGesture(
-                                    LongPressGesture(minimumDuration: 0.38)
-                                        .onEnded { _ in
-                                            guard canReorder, g.items.count > 1 else { return }
-                                            signalReorderActivation(for: item.id)
-                                        }
-                                )
-                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                    // Done remains the primary (full-swipe)
-                                    // action — listed first.
-                                    Button {
-                                        withAnimation { store.markCompleted(id: item.id) }
-                                    } label: {
-                                        Label("Done", systemImage: "checkmark")
-                                    }
-                                    .tint(Theme.accent)
+                            VStack(alignment: .leading, spacing: 14) {
+                                HStack(alignment: .lastTextBaseline) {
+                                    Text(displayTitle)
+                                        .font(Fonts.display(28, weight: .semibold))
+                                        .foregroundColor(Theme.text)
+                                        .tracking(-0.8)
+                                    Spacer()
+                                    Text("\(todayCount) today · \(starredCount) starred")
+                                        .font(Fonts.mono(11))
+                                        .foregroundColor(Theme.textFaint)
+                                        .tracking(0.4)
+                                }
+                                SearchBar(query: $query)
+                            }
+                            .padding(.top, 8)
+                            .padding(.bottom, 2)
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets(top: 0, leading: 18, bottom: 0, trailing: 18))
+                        }
 
-                                    // Delete: secondary, no confirmation here.
-                                    // Confirmation only lives in DetailView.
-                                    Button(role: .destructive) {
-                                        withAnimation { store.delete(id: item.id) }
-                                    } label: {
-                                        Label("Delete", systemImage: "trash")
+                        ForEach(groups) { g in
+                            Section {
+                                ForEach(g.items) { item in
+                                    ThingCard(
+                                        thing: item,
+                                        onTap: { selectedThingID = item.id },
+                                        onToggleStar: { store.toggleStar(id: item.id) },
+                                        showHandle: canReorder && g.items.count > 1
+                                    )
+                                    .scaleEffect(movableThingID == item.id ? 1.025 : 1)
+                                    .animation(.spring(response: 0.22, dampingFraction: 0.82), value: movableThingID)
+                                    .listRowBackground(Theme.bg.opacity(0.01))
+                                    .listRowSeparator(.hidden)
+                                    .listRowInsets(EdgeInsets(top: 4, leading: 18, bottom: 4, trailing: 18))
+                                    .simultaneousGesture(
+                                        LongPressGesture(minimumDuration: 0.38)
+                                            .onEnded { _ in
+                                                guard canReorder, g.items.count > 1 else { return }
+                                                signalReorderActivation(for: item.id)
+                                            }
+                                    )
+                                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                        // Done remains the primary (full-swipe)
+                                        // action — listed first.
+                                        Button {
+                                            withAnimation { store.markCompleted(id: item.id) }
+                                        } label: {
+                                            Label("Done", systemImage: "checkmark")
+                                        }
+                                        .tint(Theme.accent)
+
+                                        // Delete: secondary, no confirmation here.
+                                        // Confirmation only lives in DetailView.
+                                        Button(role: .destructive) {
+                                            withAnimation { store.delete(id: item.id) }
+                                        } label: {
+                                            Label("Delete", systemImage: "trash")
+                                        }
                                     }
                                 }
+                                .onMove { source, destination in
+                                    guard canReorder else { return }
+                                    store.move(within: g.items, from: source, to: destination)
+                                    signalReorderMove()
+                                }
+                            } header: {
+                                DateHeader(iso: g.date, count: g.items.count)
+                                    .padding(.horizontal, 18)
+                                    .padding(.top, 4)
+                                    .listRowInsets(EdgeInsets())
+                                    .background(Theme.bg)
                             }
-                            .onMove { source, destination in
-                                guard canReorder else { return }
-                                store.move(within: g.items, from: source, to: destination)
-                                signalReorderMove()
-                            }
-                        } header: {
-                            DateHeader(iso: g.date, count: g.items.count)
-                                .padding(.horizontal, 18)
-                                .padding(.top, 4)
-                                .listRowInsets(EdgeInsets())
-                                .background(Theme.bg)
+                            .textCase(nil)
                         }
-                        .textCase(nil)
-                    }
 
-                    if filtered.isEmpty && !query.isEmpty {
+                        if filtered.isEmpty && !query.isEmpty {
+                            Section {
+                                Text("No things match “\(query)”")
+                                    .font(Fonts.display(15))
+                                    .foregroundColor(Theme.textFaint)
+                                    .tracking(-0.2)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 60)
+                                    .listRowBackground(Color.clear)
+                                    .listRowSeparator(.hidden)
+                            }
+                        }
+
+                        // Bottom spacer so the last card scrolls above the
+                        // floating bottom bar.
                         Section {
-                            Text("No things match “\(query)”")
-                                .font(Fonts.display(15))
-                                .foregroundColor(Theme.textFaint)
-                                .tracking(-0.2)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 60)
+                            Color.clear
+                                .frame(height: 110)
                                 .listRowBackground(Color.clear)
                                 .listRowSeparator(.hidden)
                         }
                     }
-
-                    // Bottom spacer so the last card scrolls above the
-                    // floating bottom bar.
-                    Section {
-                        Color.clear
-                            .frame(height: 110)
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
-                    }
+                    .listStyle(.plain)
+                    .listSectionSpacing(.compact)
+                    .scrollIndicators(.hidden)
+                    .scrollContentBackground(.hidden)
+                    .background(Theme.bg)
+                    .scrollDismissesKeyboard(.interactively)
                 }
-                .listStyle(.plain)
-                .listSectionSpacing(.compact)
-                .scrollIndicators(.hidden)
-                .scrollContentBackground(.hidden)
-                .background(Theme.bg)
-                .scrollDismissesKeyboard(.interactively)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .background(Theme.bg.ignoresSafeArea())
         .navigationDestination(isPresented: Binding(
             get: { selectedThingID != nil },
             set: { isPresented in
@@ -219,9 +232,11 @@ struct SearchBar: View {
 }
 
 private struct EmptyHomeState: View {
+    let title: String
+
     var body: some View {
         VStack(spacing: 12) {
-            Text("Things")
+            Text(title)
                 .font(Fonts.display(28, weight: .semibold))
                 .foregroundColor(Theme.text)
                 .tracking(-0.8)
