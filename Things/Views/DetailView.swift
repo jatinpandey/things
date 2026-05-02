@@ -172,7 +172,10 @@ struct DetailView: View {
                 optional: false,
                 onClear: { b.wrappedValue.tags = [] }
             ) {
-                TagEditor(tags: b.tags)
+                TagEditor(
+                    tags: b.tags,
+                    suggestions: store.topTags(limit: 5, excluding: Set(b.wrappedValue.tags))
+                )
             }
 
             VStack(spacing: 10) {

@@ -83,12 +83,22 @@ struct HomeView: View {
                                         }
                                 )
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                    // Done remains the primary (full-swipe)
+                                    // action — listed first.
                                     Button {
                                         withAnimation { store.markCompleted(id: item.id) }
                                     } label: {
                                         Label("Done", systemImage: "checkmark")
                                     }
                                     .tint(Theme.accent)
+
+                                    // Delete: secondary, no confirmation here.
+                                    // Confirmation only lives in DetailView.
+                                    Button(role: .destructive) {
+                                        withAnimation { store.delete(id: item.id) }
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
                                 }
                             }
                             .onMove { source, destination in

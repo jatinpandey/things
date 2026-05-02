@@ -252,11 +252,22 @@ struct DatePickerRow: View {
 
 struct TagEditor: View {
     @Binding var tags: [String]
+    /// Pool of existing tags to suggest. Already-applied tags are filtered
+    /// out automatically; the top 5 are shown.
+    var suggestions: [String] = []
     @State private var draft: String = ""
     @FocusState private var draftFocused: Bool
 
+    private var visibleSuggestions: [String] {
+        let applied = Set(tags.map { $0.lowercased() })
+        return suggestions
+            .filter { !applied.contains($0.lowercased()) }
+            .prefix(5)
+            .map { $0 }
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             FlowLayout(spacing: 5, runSpacing: 5) {
                 ForEach(Array(tags.enumerated()), id: \.offset) { idx, tag in
                     TagChip(label: tag, onRemove: { remove(at: idx) })
@@ -278,6 +289,24 @@ struct TagEditor: View {
                 .padding(.vertical, 4)
                 .onSubmit { commitDraft() }
             }
+
+            if !visibleSuggestions.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("SUGGESTED")
+                        .font(Fonts.mono(9, weight: .medium))
+                        .foregroundColor(Theme.textFaint)
+                        .tracking(1)
+                    FlowLayout(spacing: 5, runSpacing: 5) {
+                        ForEach(visibleSuggestions, id: \.self) { tag in
+                            Button { add(tag) } label: {
+                                SuggestionChip(label: tag)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+
             Text("↵ to add  ·  tap × to remove")
                 .font(Fonts.mono(10))
                 .foregroundColor(Theme.textFaint)
@@ -298,9 +327,41 @@ struct TagEditor: View {
         tags.append(t)
     }
 
+    private func add(_ tag: String) {
+        guard !tags.contains(where: { $0.caseInsensitiveCompare(tag) == .orderedSame }) else { return }
+        withAnimation(.easeOut(duration: 0.15)) {
+            tags.append(tag)
+        }
+    }
+
     private func remove(at i: Int) {
         guard tags.indices.contains(i) else { return }
         tags.remove(at: i)
+    }
+}
+
+private struct SuggestionChip: View {
+    let label: String
+    var body: some View {
+        HStack(spacing: 3) {
+            Text("+")
+                .font(Fonts.mono(11, weight: .semibold))
+                .foregroundColor(Theme.accent)
+            Text(label)
+                .font(Fonts.mono(11, weight: .medium))
+                .foregroundColor(Theme.textDim)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 9)
+        .padding(.vertical, 3)
+        .background(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(Color.clear)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .strokeBorder(Theme.hairline, style: StrokeStyle(lineWidth: 0.5, dash: [3, 3]))
+        )
     }
 }
 
@@ -439,7 +500,10 @@ struct EditorView: View {
                             optional: !thing.tags.isEmpty,
                             onClear: { thing.tags = [] }
                         ) {
-                            TagEditor(tags: $thing.tags)
+                            TagEditor(
+                                tags: $thing.tags,
+                                suggestions: store.topTags(limit: 5, excluding: Set(thing.tags))
+                            )
                         }
 
                         if !isNew {

@@ -67,6 +67,24 @@ final class ThingsStore: ObservableObject {
         things[i].completedAt = nil
     }
 
+    /// Top tags across all things, ordered by usage frequency (then
+    /// alphabetically), excluding any tag in `excluding`.
+    func topTags(limit: Int = 5, excluding: Set<String> = []) -> [String] {
+        var counts: [String: Int] = [:]
+        for t in things {
+            for tag in t.tags { counts[tag, default: 0] += 1 }
+        }
+        return counts
+            .filter { !excluding.contains($0.key) }
+            .sorted {
+                $0.value != $1.value
+                    ? $0.value > $1.value
+                    : $0.key.localizedCaseInsensitiveCompare($1.key) == .orderedAscending
+            }
+            .prefix(limit)
+            .map(\.key)
+    }
+
     func showToast(_ message: String, duration: TimeInterval = 1.8) {
         toastTask?.cancel()
         withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) {
