@@ -34,6 +34,21 @@ final class ThingsStore: ObservableObject {
         things.removeAll { $0.id == id }
     }
 
+    /// Move `draggedID` to the slot currently held by `targetID`, adopting
+    /// the target's date. If `targetID` is nil, the item moves to the queue
+    /// (date = nil) at the end of the list.
+    func reorder(draggedID: Int, targetID: Int?) {
+        guard let from = things.firstIndex(where: { $0.id == draggedID }) else { return }
+        var item = things.remove(at: from)
+        if let targetID, let to = things.firstIndex(where: { $0.id == targetID }) {
+            item.date = things[to].date
+            things.insert(item, at: to)
+        } else {
+            item.date = nil
+            things.append(item)
+        }
+    }
+
     func markCompleted(id: Int) {
         guard let i = things.firstIndex(where: { $0.id == id }) else { return }
         things[i].completed = true

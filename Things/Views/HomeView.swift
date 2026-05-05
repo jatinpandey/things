@@ -72,6 +72,14 @@ struct HomeView: View {
                                     }
                                     .tint(Theme.accent)
                                 }
+                                .draggable(String(item.id))
+                                .dropDestination(for: String.self) { payload, _ in
+                                    guard let raw = payload.first,
+                                          let draggedID = Int(raw),
+                                          draggedID != item.id else { return false }
+                                    withAnimation { store.reorder(draggedID: draggedID, targetID: item.id) }
+                                    return true
+                                }
                             }
                         } header: {
                             DateHeader(iso: g.date, count: g.items.count)

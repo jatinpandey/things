@@ -109,7 +109,7 @@ struct DateHeader: View {
         let isUntimed = iso == "—"
         let isToday = !isUntimed && DateUtil.daysFromToday(iso) == 0
         let isPast  = !isUntimed && DateUtil.daysFromToday(iso) < 0
-        let label   = isUntimed ? "Untimed" : DateUtil.dayLabel(iso)
+        let label   = isUntimed ? "Queue" : DateUtil.dayLabel(iso)
 
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             Text(label)
