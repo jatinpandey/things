@@ -23,6 +23,16 @@ struct HomeView: View {
     }
 
     private var groups: [ThingGroup] { groupByDate(filtered) }
+    private var rows: [HomeRow] {
+        var out: [HomeRow] = []
+        for g in groups {
+            out.append(.header(date: g.date, count: g.items.count))
+            for item in g.items {
+                out.append(.item(item))
+            }
+        }
+        return out
+    }
     private var todayCount: Int {
         store.active.filter { ($0.date.map(DateUtil.daysFromToday) ?? -999) == 0 }.count
     }
@@ -71,14 +81,24 @@ struct HomeView: View {
                             .listRowInsets(EdgeInsets(top: 0, leading: 18, bottom: 0, trailing: 18))
                         }
 
-                        ForEach(groups) { g in
-                            Section {
-                                ForEach(g.items) { item in
+                        Section {
+                            ForEach(rows) { row in
+                                switch row {
+                                case .header(let date, let count):
+                                    DateHeader(iso: date, count: count)
+                                        .padding(.horizontal, 18)
+                                        .padding(.top, 12)
+                                        .padding(.bottom, 2)
+                                        .listRowBackground(Theme.bg)
+                                        .listRowSeparator(.hidden)
+                                        .listRowInsets(EdgeInsets())
+                                        .moveDisabled(true)
+                                case .item(let item):
                                     ThingCard(
                                         thing: item,
                                         onTap: { selectedThingID = item.id },
                                         onToggleStar: { store.toggleStar(id: item.id) },
-                                        showHandle: canReorder && g.items.count > 1
+                                        showHandle: canReorder && filtered.count > 1
                                     )
                                     .scaleEffect(movableThingID == item.id ? 1.025 : 1)
                                     .animation(.spring(response: 0.22, dampingFraction: 0.82), value: movableThingID)
@@ -88,7 +108,7 @@ struct HomeView: View {
                                     .simultaneousGesture(
                                         LongPressGesture(minimumDuration: 0.38)
                                             .onEnded { _ in
-                                                guard canReorder, g.items.count > 1 else { return }
+                                                guard canReorder, filtered.count > 1 else { return }
                                                 signalReorderActivation(for: item.id)
                                             }
                                     )
@@ -111,20 +131,14 @@ struct HomeView: View {
                                         }
                                     }
                                 }
-                                .onMove { source, destination in
-                                    guard canReorder else { return }
-                                    store.move(within: g.items, from: source, to: destination)
-                                    signalReorderMove()
-                                }
-                            } header: {
-                                DateHeader(iso: g.date, count: g.items.count)
-                                    .padding(.horizontal, 18)
-                                    .padding(.top, 4)
-                                    .listRowInsets(EdgeInsets())
-                                    .background(Theme.bg)
                             }
-                            .textCase(nil)
+                            .onMove { source, destination in
+                                guard canReorder else { return }
+                                handleCrossGroupMove(source: source, destination: destination)
+                                signalReorderMove()
+                            }
                         }
+                        .textCase(nil)
 
                         if filtered.isEmpty && !query.isEmpty {
                             Section {
@@ -194,6 +208,45 @@ struct HomeView: View {
     private func signalReorderMove() {
         reorderMoveFeedback.selectionChanged()
         reorderMoveFeedback.prepare()
+    }
+
+    private func handleCrossGroupMove(source: IndexSet, destination: Int) {
+        var reordered = rows
+        reordered.move(fromOffsets: source, toOffset: destination)
+
+        // Walk the new flat order. Each item adopts the date of the most
+        // recent header it sits under. If an item lands above the first
+        // header (rare; headers are moveDisabled), fall back to the first
+        // group's date so the item still belongs to a real group.
+        let fallbackDate: String? = groups.first.flatMap { $0.date == "—" ? nil : $0.date }
+        var currentDate: String? = fallbackDate
+        var ordered: [Thing] = []
+        ordered.reserveCapacity(filtered.count)
+
+        for row in reordered {
+            switch row {
+            case .header(let date, _):
+                currentDate = (date == "—") ? nil : date
+            case .item(let original):
+                var t = original
+                t.date = currentDate
+                ordered.append(t)
+            }
+        }
+
+        store.reorderActive(ordered)
+    }
+}
+
+private enum HomeRow: Identifiable, Equatable {
+    case header(date: String, count: Int)
+    case item(Thing)
+
+    var id: String {
+        switch self {
+        case .header(let date, _): return "h:\(date)"
+        case .item(let t): return "i:\(t.id)"
+        }
     }
 }
 

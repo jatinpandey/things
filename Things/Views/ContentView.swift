@@ -70,6 +70,21 @@ final class ThingsStore: ObservableObject {
         things = next
     }
 
+    /// Replace the active sub-sequence of `things` with `ordered`, preserving
+    /// completed items in their existing absolute positions. Each `Thing` in
+    /// `ordered` may carry an updated `date` to reflect cross-group moves.
+    func reorderActive(_ ordered: [Thing]) {
+        let activeIDs = Set(ordered.map(\.id))
+        let slots = things.indices.filter { activeIDs.contains(things[$0].id) }
+        guard slots.count == ordered.count else { return }
+
+        var next = things
+        for (slot, item) in zip(slots, ordered) {
+            next[slot] = item
+        }
+        things = next
+    }
+
     func save(_ next: Thing) {
         if let i = things.firstIndex(where: { $0.id == next.id }) {
             things[i] = next
