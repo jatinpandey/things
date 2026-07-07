@@ -39,6 +39,8 @@ struct ThingCard: View {
     /// Show the visual drag-handle hint. The actual reorder is driven by the
     /// containing List's `.onMove` (long-press anywhere on the row).
     var showHandle: Bool = false
+    /// Tapping a tag chip filters the list by that tag.
+    var onTagTap: ((String) -> Void)? = nil
 
     var body: some View {
         cardBody
@@ -48,17 +50,33 @@ struct ThingCard: View {
     private var cardBody: some View {
         HStack(alignment: .top, spacing: 10) {
             VStack(alignment: .leading, spacing: 9) {
-                Text(thing.name)
-                    .font(Fonts.display(16, weight: .medium))
-                    .foregroundColor(Theme.text)
-                    .multilineTextAlignment(.leading)
-                    .lineSpacing(1.35 * 16 - 16)
-                    .strikethrough(thing.completed, color: Theme.textFaint)
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(thing.name)
+                        .font(Fonts.display(16, weight: .medium))
+                        .foregroundColor(Theme.text)
+                        .multilineTextAlignment(.leading)
+                        .lineSpacing(1.35 * 16 - 16)
+                        .strikethrough(thing.completed, color: Theme.textFaint)
+
+                    if thing.repeatRule != nil {
+                        Image(systemName: "repeat")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(Theme.textFaint)
+                            .accessibilityLabel("Repeats")
+                    }
+                }
 
                 if !thing.tags.isEmpty {
                     FlowLayout(spacing: 4, runSpacing: 4) {
                         ForEach(Array(thing.tags.enumerated()), id: \.offset) { _, tag in
-                            TagChip(label: tag)
+                            if let onTagTap {
+                                Button { onTagTap(tag) } label: {
+                                    TagChip(label: tag)
+                                }
+                                .buttonStyle(.plain)
+                            } else {
+                                TagChip(label: tag)
+                            }
                         }
                     }
                 }
@@ -121,12 +139,40 @@ struct DateHeader: View {
     let count: Int
 
     var body: some View {
+        if iso == "overdue" {
+            overdueBody
+        } else {
+            dateBody
+        }
+    }
+
+    /// Pinned red header for the Overdue pseudo-group. Past dates get full
+    /// prominence here (not the dimmed treatment) — they're the most
+    /// important thing on screen.
+    private var overdueBody: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text("Overdue")
+                .font(Fonts.display(15, weight: .semibold))
+                .foregroundColor(Theme.danger)
+                .tracking(-0.2)
+            Text("\(count) · swipe right for today")
+                .font(Fonts.mono(10))
+                .foregroundColor(Theme.textFaint)
+                .tracking(0.4)
+            Spacer()
+            Circle().fill(Theme.danger).frame(width: 6, height: 6)
+        }
+        .padding(.vertical, 4)
+        .padding(.bottom, 6)
+    }
+
+    private var dateBody: some View {
         let isUntimed = iso == "—"
         let isToday = !isUntimed && DateUtil.daysFromToday(iso) == 0
         let isPast  = !isUntimed && DateUtil.daysFromToday(iso) < 0
         let label   = isUntimed ? "Untimed" : DateUtil.dayLabel(iso)
 
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
+        return HStack(alignment: .firstTextBaseline, spacing: 10) {
             Text(label)
                 .font(Fonts.display(15, weight: .semibold))
                 .foregroundColor(isToday ? Theme.text : Theme.textDim)

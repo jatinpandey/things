@@ -7,8 +7,7 @@ enum Persistence {
 
     static func loadLists() -> [ThingList] {
         if let data = defaults.data(forKey: listsKey),
-           let lists = try? JSONDecoder().decode([ThingList].self, from: data),
-           !lists.isEmpty {
+           let lists = try? JSONDecoder().decode([ThingList].self, from: data) {
             return lists
         }
 

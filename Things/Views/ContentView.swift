@@ -23,6 +23,12 @@ enum AppAppearance: String, CaseIterable, Identifiable {
     }
 }
 
+struct ToastData {
+    let message: String
+    var actionLabel: String? = nil
+    var action: (() -> Void)? = nil
+}
+
 @MainActor
 final class ThingsStore: ObservableObject {
     let listID: UUID
@@ -35,7 +41,7 @@ final class ThingsStore: ObservableObject {
             listsStore.updateThings(in: listID, things: newValue)
         }
     }
-    @Published var toastMessage: String?
+    @Published var toast: ToastData?
 
     private var toastTask: Task<Void, Never>?
 
@@ -87,7 +93,13 @@ final class ThingsStore: ObservableObject {
 
     func save(_ next: Thing) {
         if let i = things.firstIndex(where: { $0.id == next.id }) {
+            let was = things[i]
             things[i] = next
+            // Completing via the editor spawns the next repeat occurrence,
+            // same as the swipe path.
+            if !was.completed && next.completed {
+                spawnRepeatIfNeeded(for: next)
+            }
         } else {
             things.append(next)
         }
@@ -99,16 +111,54 @@ final class ThingsStore: ObservableObject {
         things.removeAll { $0.id == id }
     }
 
-    func markCompleted(id: Int) {
-        guard let i = things.firstIndex(where: { $0.id == id }) else { return }
+    /// Re-insert a previously deleted thing at (close to) its old position.
+    func restore(_ thing: Thing, at index: Int?) {
+        guard !things.contains(where: { $0.id == thing.id }) else { return }
+        var next = things
+        next.insert(thing, at: min(index ?? next.endIndex, next.endIndex))
+        things = next
+    }
+
+    /// Marks the thing completed. If it repeats, spawns the next occurrence
+    /// and returns the spawned thing's id (so an Undo can remove it again).
+    @discardableResult
+    func markCompleted(id: Int) -> Int? {
+        guard let i = things.firstIndex(where: { $0.id == id }) else { return nil }
         things[i].completed = true
         things[i].completedAt = Date()
+        return spawnRepeatIfNeeded(for: things[i])
     }
 
     func markActive(id: Int) {
         guard let i = things.firstIndex(where: { $0.id == id }) else { return }
         things[i].completed = false
         things[i].completedAt = nil
+    }
+
+    func undoComplete(id: Int, spawnedID: Int?) {
+        if let spawnedID {
+            things.removeAll { $0.id == spawnedID }
+        }
+        markActive(id: id)
+    }
+
+    func moveToToday(id: Int) {
+        guard let i = things.firstIndex(where: { $0.id == id }) else { return }
+        things[i].date = DateUtil.fmtISO(Date())
+    }
+
+    @discardableResult
+    private func spawnRepeatIfNeeded(for thing: Thing) -> Int? {
+        guard let rule = thing.repeatRule,
+              let date = thing.date,
+              let next = rule.nextISO(after: date) else { return nil }
+        var clone = thing
+        clone.id = nextID()
+        clone.date = next
+        clone.completed = false
+        clone.completedAt = nil
+        things.append(clone)
+        return clone.id
     }
 
     /// Top tags across all things, ordered by usage frequency (then
@@ -129,17 +179,31 @@ final class ThingsStore: ObservableObject {
             .map(\.key)
     }
 
-    func showToast(_ message: String, duration: TimeInterval = 1.8) {
+    func showToast(
+        _ message: String,
+        actionLabel: String? = nil,
+        duration: TimeInterval? = nil,
+        action: (() -> Void)? = nil
+    ) {
         toastTask?.cancel()
         withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) {
-            toastMessage = message
+            toast = ToastData(message: message, actionLabel: actionLabel, action: action)
         }
+        // Toasts with an Undo action linger longer.
+        let lifetime = duration ?? (action == nil ? 1.8 : 4.0)
         toastTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000))
+            try? await Task.sleep(nanoseconds: UInt64(lifetime * 1_000_000_000))
             guard !Task.isCancelled, let self else { return }
             withAnimation(.easeOut(duration: 0.25)) {
-                self.toastMessage = nil
+                self.toast = nil
             }
+        }
+    }
+
+    func dismissToast() {
+        toastTask?.cancel()
+        withAnimation(.easeOut(duration: 0.2)) {
+            toast = nil
         }
     }
 }
@@ -147,7 +211,10 @@ final class ThingsStore: ObservableObject {
 @MainActor
 final class ThingListsStore: ObservableObject {
     @Published var lists: [ThingList] {
-        didSet { Persistence.saveLists(lists) }
+        didSet {
+            Persistence.saveLists(lists)
+            NotificationManager.sync(lists: lists)
+        }
     }
 
     init(lists: [ThingList]? = nil) {
@@ -158,18 +225,39 @@ final class ThingListsStore: ObservableObject {
         lists.first { $0.id == id }
     }
 
+    func renameList(id: UUID, to rawName: String) {
+        let name = normalizedName(rawName)
+        guard let i = lists.firstIndex(where: { $0.id == id }) else { return }
+        lists[i].name = name
+    }
+
     @discardableResult
     func addList(named rawName: String) -> UUID {
-        let trimmed = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
-        let name = trimmed.isEmpty ? nextUntitledName() : trimmed
-        let list = ThingList(name: name)
+        let list = ThingList(name: normalizedName(rawName))
         lists.append(list)
         return list.id
+    }
+
+    func deleteLists(at offsets: IndexSet) {
+        lists.remove(atOffsets: offsets)
+    }
+
+    func deleteList(id: UUID) {
+        lists.removeAll { $0.id == id }
+    }
+
+    func moveLists(from source: IndexSet, to destination: Int) {
+        lists.move(fromOffsets: source, toOffset: destination)
     }
 
     func updateThings(in listID: UUID, things: [Thing]) {
         guard let i = lists.firstIndex(where: { $0.id == listID }) else { return }
         lists[i].things = things
+    }
+
+    private func normalizedName(_ rawName: String) -> String {
+        let trimmed = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nextUntitledName() : trimmed
     }
 
     private func nextUntitledName() -> String {
@@ -223,6 +311,10 @@ struct ContentView: View {
                 self.selectedListID = nil
             }
         }
+        .task {
+            NotificationManager.requestAuthorizationIfNeeded()
+            NotificationManager.sync(lists: listsStore.lists)
+        }
     }
 
     private var listsRoot: some View {
@@ -240,13 +332,19 @@ struct ListsHomeView: View {
     @Binding var appearance: AppAppearance
     let onSelect: (UUID) -> Void
     let onAdd: () -> Void
+    @State private var editMode: EditMode = .inactive
+    @State private var listBeingRenamed: ThingList?
+
+    private var isEditing: Bool {
+        editMode.isEditing
+    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
             Theme.bg.ignoresSafeArea()
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
+            List {
+                Section {
                     HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Things")
@@ -259,6 +357,24 @@ struct ListsHomeView: View {
                                 .tracking(0.4)
                         }
                         Spacer()
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.18)) {
+                                editMode = isEditing ? .inactive : .active
+                            }
+                        } label: {
+                            Text(isEditing ? "Done" : "Edit")
+                                .font(Fonts.sans(13, weight: .semibold))
+                                .foregroundColor(Theme.text)
+                                .tracking(-0.1)
+                                .padding(.horizontal, 13)
+                                .padding(.vertical, 9)
+                                .background(Theme.surface)
+                                .clipShape(Capsule())
+                                .hairlineBorder(Theme.hairline, radius: 999)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(isEditing ? "Finish editing lists" : "Edit lists")
+
                         Button(action: onAdd) {
                             Image(systemName: "plus")
                                 .font(.system(size: 17, weight: .semibold))
@@ -270,28 +386,102 @@ struct ListsHomeView: View {
                         .accessibilityLabel("Add list")
                     }
                     .padding(.top, 18)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 0, leading: 18, bottom: 8, trailing: 18))
+                }
 
-                    VStack(spacing: 10) {
-                        ForEach(store.lists) { list in
-                            Button {
+                Section {
+                    ForEach(store.lists) { list in
+                        Button {
+                            if isEditing {
+                                listBeingRenamed = list
+                            } else {
                                 onSelect(list.id)
-                            } label: {
-                                ThingListRow(list: list)
                             }
-                            .buttonStyle(.plain)
+                        } label: {
+                            ThingListRow(list: list, isEditing: isEditing)
                         }
+                        .buttonStyle(.plain)
+                        .contextMenu {
+                            Button {
+                                listBeingRenamed = list
+                            } label: {
+                                Label("Rename", systemImage: "pencil")
+                            }
+                            Button(role: .destructive) {
+                                withAnimation { store.deleteList(id: list.id) }
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                            Button {
+                                listBeingRenamed = list
+                            } label: {
+                                Label("Rename", systemImage: "pencil")
+                            }
+                            .tint(Theme.accent)
+                        }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                withAnimation { store.deleteList(id: list.id) }
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                        .listRowBackground(Theme.bg.opacity(0.01))
+                        .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets(top: 5, leading: 18, bottom: 5, trailing: 18))
+                    }
+                    .onMove(perform: store.moveLists)
+                    .onDelete(perform: store.deleteLists)
+                }
+                .textCase(nil)
+
+                if store.lists.isEmpty {
+                    Section {
+                        Text("No lists yet")
+                            .font(Fonts.display(15))
+                            .foregroundColor(Theme.textFaint)
+                            .tracking(-0.2)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 54)
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
                     }
                 }
-                .padding(.horizontal, 18)
-                .padding(.bottom, 104)
+
+                Section {
+                    Color.clear
+                        .frame(height: 104)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
             }
-            .scrollBounceBehavior(.basedOnSize)
+            .listStyle(.plain)
+            .listSectionSpacing(.compact)
+            .scrollIndicators(.hidden)
+            .scrollContentBackground(.hidden)
+            .background(Theme.bg)
+            .environment(\.editMode, $editMode)
 
             AppearancePicker(selection: $appearance)
                 .padding(.horizontal, 18)
                 .padding(.bottom, 18)
         }
         .toolbar(.hidden, for: .navigationBar)
+        .sheet(item: $listBeingRenamed) { list in
+            ListNameSheet(
+                title: "Rename list",
+                actionTitle: "Save",
+                initialName: list.name
+            ) { name in
+                store.renameList(id: list.id, to: name)
+            }
+            .presentationDetents([.height(220)])
+            .preferredColorScheme(appearance.colorScheme)
+        }
     }
 }
 
@@ -331,6 +521,7 @@ private struct AppearancePicker: View {
 
 private struct ThingListRow: View {
     let list: ThingList
+    let isEditing: Bool
 
     private var activeCount: Int {
         list.things.filter { !$0.completed }.count
@@ -356,9 +547,10 @@ private struct ThingListRow: View {
                     .tracking(0.4)
             }
             Spacer()
-            Image(systemName: "chevron.right")
+            Image(systemName: isEditing ? "pencil" : "chevron.right")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(Theme.textFaint)
+                .frame(width: 18)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 15)
@@ -450,6 +642,103 @@ private struct NewListSheet: View {
     }
 }
 
+private struct ListNameSheet: View {
+    let title: String
+    let actionTitle: String
+    let onSubmit: (String) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var name: String
+    @FocusState private var nameFocused: Bool
+
+    init(
+        title: String,
+        actionTitle: String,
+        initialName: String,
+        onSubmit: @escaping (String) -> Void
+    ) {
+        self.title = title
+        self.actionTitle = actionTitle
+        self.onSubmit = onSubmit
+        self._name = State(initialValue: initialName)
+    }
+
+    private var canSubmit: Bool {
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var body: some View {
+        ZStack {
+            Theme.bg.ignoresSafeArea()
+
+            VStack(spacing: 18) {
+                HStack {
+                    Button("Cancel") { dismiss() }
+                        .font(Fonts.sans(14, weight: .medium))
+                        .foregroundColor(Theme.textDim)
+                        .tracking(-0.1)
+                        .buttonStyle(.plain)
+                    Spacer()
+                    Text(title)
+                        .font(Fonts.display(15, weight: .semibold))
+                        .foregroundColor(Theme.text)
+                        .tracking(-0.2)
+                    Spacer()
+                    Button(action: submit) {
+                        Text(actionTitle)
+                            .font(Fonts.sans(13, weight: .semibold))
+                            .foregroundColor(canSubmit ? Theme.bg : Theme.textFaint)
+                            .tracking(-0.1)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 7)
+                            .background(
+                                Capsule().fill(canSubmit ? Theme.text : Color.clear)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!canSubmit)
+                }
+
+                TextField(
+                    "",
+                    text: $name,
+                    prompt: Text("List name")
+                        .foregroundColor(Theme.textFaint)
+                )
+                .focused($nameFocused)
+                .font(Fonts.display(18, weight: .medium))
+                .foregroundColor(Theme.text)
+                .tracking(-0.4)
+                .textFieldStyle(.plain)
+                .textContentType(.none)
+                .autocorrectionDisabled(true)
+                .textInputAutocapitalization(.sentences)
+                .submitLabel(.done)
+                .onSubmit(submit)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 13)
+                .background(Theme.surface)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .hairlineBorder(Theme.hairline, radius: 8)
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 18)
+            .padding(.top, 16)
+        }
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                nameFocused = true
+            }
+        }
+    }
+
+    private func submit() {
+        guard canSubmit else { return }
+        onSubmit(name)
+        dismiss()
+    }
+}
+
 private struct MissingListView: View {
     var body: some View {
         ZStack {
@@ -519,11 +808,12 @@ private struct ThingListContentView: View {
             }
         }
         .overlay(alignment: .top) {
-            if let msg = store.toastMessage {
-                ToastView(message: msg)
+            if let toast = store.toast {
+                ToastView(toast: toast, onAction: { store.dismissToast() })
                     .padding(.top, 8)
                     .transition(.move(edge: .top).combined(with: .opacity))
-                    .allowsHitTesting(false)
+                    // Only intercept touches when there's an action to tap.
+                    .allowsHitTesting(toast.action != nil)
             }
         }
     }
@@ -627,16 +917,38 @@ private struct BarButtonStyle: ButtonStyle {
 }
 
 struct ToastView: View {
-    let message: String
+    let toast: ToastData
+    /// Called after the action runs, so the host can dismiss the toast.
+    var onAction: (() -> Void)? = nil
+
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(Theme.accent)
-            Text(message)
+            Text(toast.message)
                 .font(Fonts.sans(13, weight: .medium))
                 .foregroundColor(Theme.text)
                 .tracking(-0.1)
+
+            if let label = toast.actionLabel, let action = toast.action {
+                Rectangle()
+                    .fill(Theme.hairline)
+                    .frame(width: 0.5, height: 16)
+                    .padding(.horizontal, 2)
+                Button {
+                    action()
+                    onAction?()
+                } label: {
+                    Text(label)
+                        .font(Fonts.sans(13, weight: .semibold))
+                        .foregroundColor(Theme.accent)
+                        .tracking(-0.1)
+                        .padding(.vertical, 4)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 9)

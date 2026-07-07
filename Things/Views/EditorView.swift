@@ -250,6 +250,105 @@ struct DatePickerRow: View {
     }
 }
 
+/// Pill row for a thing's repeat cadence. Only meaningful when a date is set.
+struct RepeatPicker: View {
+    @Binding var rule: RepeatRule?
+
+    var body: some View {
+        HStack(spacing: 6) {
+            pill(active: rule == nil, label: "None") { rule = nil }
+            ForEach(RepeatRule.allCases) { r in
+                pill(active: rule == r, label: r.label) { rule = r }
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    @ViewBuilder
+    private func pill(active: Bool, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(Fonts.sans(13, weight: .medium))
+                .foregroundColor(active ? Theme.bg : Theme.text)
+                .tracking(-0.1)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(
+                    Capsule().fill(active ? Theme.text : Color.clear)
+                )
+                .overlay(
+                    Capsule().strokeBorder(active ? Theme.text : Theme.hairline, lineWidth: 0.5)
+                )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// Watches the title for a natural-language date ("call mom tomorrow") and
+/// offers a one-tap pill that sets the date and strips the phrase.
+struct DateSuggestionPill: View {
+    @Binding var name: String
+    @Binding var date: String?
+    @State private var dismissedMatch: String?
+
+    private var suggestion: (iso: String, matched: String)? {
+        guard let s = DateSuggestion.detect(in: name),
+              s.matched != dismissedMatch,
+              date != s.iso
+        else { return nil }
+        return s
+    }
+
+    var body: some View {
+        if let s = suggestion {
+            HStack(spacing: 6) {
+                Button {
+                    withAnimation(.easeOut(duration: 0.18)) {
+                        date = s.iso
+                        let stripped = DateSuggestion.strip(s.matched, from: name)
+                        if !stripped.isEmpty { name = stripped }
+                        dismissedMatch = nil
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        CalIcon(size: 12, color: Theme.accent)
+                        Text("Set date: \(DateUtil.dayLabel(s.iso))")
+                            .font(Fonts.mono(11, weight: .medium))
+                            .foregroundColor(Theme.accent)
+                            .tracking(0.2)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Capsule().fill(Theme.accentDim))
+                    .overlay(
+                        Capsule().strokeBorder(
+                            Theme.accentBorder,
+                            style: StrokeStyle(lineWidth: 0.5, dash: [3, 3])
+                        )
+                    )
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    withAnimation(.easeOut(duration: 0.15)) {
+                        dismissedMatch = s.matched
+                    }
+                } label: {
+                    CloseIcon(size: 12, color: Theme.textFaint)
+                        .padding(4)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Dismiss date suggestion")
+
+                Spacer(minLength: 0)
+            }
+            .padding(.top, 8)
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        }
+    }
+}
+
 struct TagEditor: View {
     @Binding var tags: [String]
     /// Pool of existing tags to suggest. Already-applied tags are filtered
@@ -434,43 +533,50 @@ struct EditorView: View {
                 ScrollView {
                     VStack(spacing: 0) {
                         FieldRow(label: "Title") {
-                            HStack(alignment: .top, spacing: 10) {
-                                TextField(
-                                    "",
-                                    text: $thing.name,
-                                    prompt: Text("Add a new Thing")
-                                        .foregroundColor(Theme.textFaint),
-                                    axis: .vertical
-                                )
-                                .focused($nameFocused)
-                                .font(Fonts.display(16, weight: .medium))
-                                .foregroundColor(Theme.text)
-                                .tracking(-0.4)
-                                .lineLimit(1...4)
-                                .textFieldStyle(.plain)
-                                .textContentType(.none)
-                                .autocorrectionDisabled(true)
-                                .textInputAutocapitalization(.sentences)
-                                .submitLabel(.done)
-                                
-                                Button(action: { thing.starred.toggle() }) {
-                                    StarIcon(
-                                        filled: thing.starred,
-                                        size: 22,
-                                        color: thing.starred ? Theme.accent : Theme.textFaint
+                            VStack(alignment: .leading, spacing: 0) {
+                                HStack(alignment: .top, spacing: 10) {
+                                    TextField(
+                                        "",
+                                        text: $thing.name,
+                                        prompt: Text("Add a new Thing")
+                                            .foregroundColor(Theme.textFaint),
+                                        axis: .vertical
                                     )
-                                    .padding(4)
+                                    .focused($nameFocused)
+                                    .font(Fonts.display(16, weight: .medium))
+                                    .foregroundColor(Theme.text)
+                                    .tracking(-0.4)
+                                    .lineLimit(1...4)
+                                    .textFieldStyle(.plain)
+                                    .textContentType(.none)
+                                    .autocorrectionDisabled(true)
+                                    .textInputAutocapitalization(.sentences)
+                                    .submitLabel(.done)
+
+                                    Button(action: { thing.starred.toggle() }) {
+                                        StarIcon(
+                                            filled: thing.starred,
+                                            size: 22,
+                                            color: thing.starred ? Theme.accent : Theme.textFaint
+                                        )
+                                        .padding(4)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .padding(.leading, -4)
+                                    .padding(.top, 2)
                                 }
-                                .buttonStyle(.plain)
-                                .padding(.leading, -4)
-                                .padding(.top, 2)
+
+                                DateSuggestionPill(name: $thing.name, date: $thing.date)
                             }
                         }
 
                         FieldRow(
                             label: "When",
                             optional: thing.date != nil,
-                            onClear: { thing.date = nil }
+                            onClear: {
+                                thing.date = nil
+                                thing.repeatRule = nil
+                            }
                         ) {
                             if thing.date != nil {
                                 DatePickerRow(value: Binding(
@@ -496,6 +602,16 @@ struct EditorView: View {
                                     )
                                 }
                                 .buttonStyle(.plain)
+                            }
+                        }
+
+                        if thing.date != nil {
+                            FieldRow(
+                                label: "Repeat",
+                                optional: thing.repeatRule != nil,
+                                onClear: { thing.repeatRule = nil }
+                            ) {
+                                RepeatPicker(rule: $thing.repeatRule)
                             }
                         }
 

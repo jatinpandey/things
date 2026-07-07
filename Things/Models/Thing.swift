@@ -8,6 +8,84 @@ struct Thing: Identifiable, Equatable, Codable {
     var starred: Bool
     var completed: Bool = false
     var completedAt: Date? = nil
+    var repeatRule: RepeatRule? = nil
+}
+
+enum RepeatRule: String, Codable, CaseIterable, Identifiable {
+    case daily, weekly, monthly
+
+    var id: Self { self }
+
+    var label: String {
+        switch self {
+        case .daily:   "Daily"
+        case .weekly:  "Weekly"
+        case .monthly: "Monthly"
+        }
+    }
+
+    /// Next occurrence strictly after `iso`, advanced until it's not in the
+    /// past (so completing a long-overdue repeating thing lands on the next
+    /// upcoming slot, not a stack of missed ones).
+    func nextISO(after iso: String) -> String? {
+        guard var d = DateUtil.parseISO(iso) else { return nil }
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        let (component, amount): (Calendar.Component, Int) = switch self {
+        case .daily:   (.day, 1)
+        case .weekly:  (.day, 7)
+        case .monthly: (.month, 1)
+        }
+        repeat {
+            guard let n = cal.date(byAdding: component, value: amount, to: d) else { return nil }
+            d = n
+        } while d < today
+        return DateUtil.fmtISO(d)
+    }
+}
+
+/// Detects a natural-language date inside free text ("call mom tomorrow",
+/// "dentist on friday", "renew passport may 12").
+enum DateSuggestion {
+    static func detect(in text: String) -> (iso: String, matched: String)? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= 3,
+              let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.date.rawValue)
+        else { return nil }
+
+        let range = NSRange(text.startIndex..., in: text)
+        for m in detector.matches(in: text, options: [], range: range) {
+            guard let date = m.date, let r = Range(m.range, in: text) else { continue }
+            let matched = String(text[r])
+            // Skip time-only matches like "4:15" or "10 pm" — we only care
+            // about calendar days.
+            if matched.range(
+                of: #"^[\d:.\s]+(am|pm)?$"#,
+                options: [.regularExpression, .caseInsensitive]
+            ) != nil { continue }
+            let iso = DateUtil.fmtISO(date)
+            guard DateUtil.daysFromToday(iso) >= 0 else { continue }
+            return (iso, matched)
+        }
+        return nil
+    }
+
+    /// Remove the matched phrase (and a dangling connector word) from the title.
+    static func strip(_ matched: String, from text: String) -> String {
+        var out = text.replacingOccurrences(of: matched, with: "")
+        out = out.replacingOccurrences(
+            of: #"\s{2,}"#, with: " ", options: .regularExpression
+        )
+        out = out.trimmingCharacters(in: .whitespacesAndNewlines)
+        for connector in ["on", "at", "by", "due", "for", "-", "–", "—"] {
+            if out.lowercased().hasSuffix(" " + connector) {
+                out = String(out.dropLast(connector.count + 1))
+            } else if out.lowercased() == connector {
+                out = ""
+            }
+        }
+        return out.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 }
 
 struct ThingList: Identifiable, Equatable, Codable {

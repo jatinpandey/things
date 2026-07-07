@@ -101,48 +101,59 @@ struct DetailView: View {
 
         VStack(spacing: 0) {
             FieldRow(label: "Title") {
-                HStack(alignment: .top, spacing: 10) {
-                    TextField(
-                        "",
-                        text: b.name,
-                        prompt: Text("Add a new Thing")
-                            .foregroundColor(Theme.textFaint),
-                        axis: .vertical
-                    )
-                    .focused($nameFocused)
-                    .font(Fonts.display(16, weight: .medium))
-                    .foregroundColor(Theme.text)
-                    .tracking(-0.4)
-                    .lineLimit(1...4)
-                    .textFieldStyle(.plain)
-                    .textContentType(.none)
-                    .autocorrectionDisabled(true)
-                    .textInputAutocapitalization(.sentences)
-                    .submitLabel(.done)
-                    .strikethrough(thing.completed, color: Theme.textFaint)
-                    
-                    Button(action: {
-                        var next = b.wrappedValue
-                        next.starred.toggle()
-                        b.wrappedValue = next
-                    }) {
-                        StarIcon(
-                            filled: b.wrappedValue.starred,
-                            size: 22,
-                            color: b.wrappedValue.starred ? Theme.accent : Theme.textFaint
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(alignment: .top, spacing: 10) {
+                        TextField(
+                            "",
+                            text: b.name,
+                            prompt: Text("Add a new Thing")
+                                .foregroundColor(Theme.textFaint),
+                            axis: .vertical
                         )
-                        .padding(4)
+                        .focused($nameFocused)
+                        .font(Fonts.display(16, weight: .medium))
+                        .foregroundColor(Theme.text)
+                        .tracking(-0.4)
+                        .lineLimit(1...4)
+                        .textFieldStyle(.plain)
+                        .textContentType(.none)
+                        .autocorrectionDisabled(true)
+                        .textInputAutocapitalization(.sentences)
+                        .submitLabel(.done)
+                        .strikethrough(thing.completed, color: Theme.textFaint)
+
+                        Button(action: {
+                            var next = b.wrappedValue
+                            next.starred.toggle()
+                            b.wrappedValue = next
+                        }) {
+                            StarIcon(
+                                filled: b.wrappedValue.starred,
+                                size: 22,
+                                color: b.wrappedValue.starred ? Theme.accent : Theme.textFaint
+                            )
+                            .padding(4)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.leading, -4)
+                        .padding(.top, 2)
                     }
-                    .buttonStyle(.plain)
-                    .padding(.leading, -4)
-                    .padding(.top, 2)
+
+                    if !thing.completed {
+                        DateSuggestionPill(name: b.name, date: b.date)
+                    }
                 }
             }
 
             FieldRow(
                 label: "When",
                 optional: thing.date != nil,
-                onClear: { b.wrappedValue.date = nil }
+                onClear: {
+                    var next = b.wrappedValue
+                    next.date = nil
+                    next.repeatRule = nil
+                    b.wrappedValue = next
+                }
             ) {
                 if thing.date != nil {
                     DatePickerRow(value: Binding(
@@ -168,6 +179,16 @@ struct DetailView: View {
                         )
                     }
                     .buttonStyle(.plain)
+                }
+            }
+
+            if thing.date != nil && !thing.completed {
+                FieldRow(
+                    label: "Repeat",
+                    optional: thing.repeatRule != nil,
+                    onClear: { b.wrappedValue.repeatRule = nil }
+                ) {
+                    RepeatPicker(rule: b.repeatRule)
                 }
             }
 
